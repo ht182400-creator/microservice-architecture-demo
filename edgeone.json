@@ -1,0 +1,10 @@
+{
+  "headers": [
+    {
+      "path": "/api/*",
+      "headers": {
+        "Cache-Control": "no-store"
+      }
+    }
+  ]
+}

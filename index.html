@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>微服务架构图 · 动态版（含全景静态图）</title>
+<style>
+:root{--gw:#e0552b;--biz:#2b6fd6;--inf:#1f9d57;--bg:#f4f4f2;--ink:#2b2b2b;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);
+  background-image:linear-gradient(#e6e6e3 1px,transparent 1px),linear-gradient(90deg,#e6e6e3 1px,transparent 1px);background-size:26px 26px;}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px;}
+.top-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+h1{font-size:24px;margin:0 0 4px;}
+.sub{color:#777;font-size:13px;margin-bottom:18px;line-height:1.6;}
+.legend{display:flex;gap:14px;font-size:12px;color:#666;margin-bottom:16px;flex-wrap:wrap;}
+.legend span{display:flex;align-items:center;gap:5px;}
+.dot{width:11px;height:11px;border-radius:3px;display:inline-block;}
+.panel{background:#fff;border:2px solid #ddd;border-radius:14px;padding:16px 18px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,.04);}
+.token-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.token-bar input{padding:8px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;}
+.btn{cursor:pointer;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;color:#fff;background:var(--gw);transition:.15s;}
+.btn:hover{filter:brightness(1.07);}
+.btn:active{transform:translateY(1px);}
+.btn-blue{background:var(--biz);}
+.btn-green{background:var(--inf);}
+.btn-outline{background:transparent;color:var(--gw);border:2px solid var(--gw);}
+.btn-outline:hover{background:var(--gw);color:#fff;}
+.btn-link{display:inline-flex;align-items:center;gap:6px;margin-left:10px;font-size:13px;font-weight:600;color:#7aa7e0;text-decoration:none;border:1px dashed #3a4a63;border-radius:8px;padding:8px 14px;transition:.15s;}
+.btn-link:hover{background:#1b2435;color:#9cc0f0;border-color:#4a6a93;}
+.hint{font-size:12px;color:#999;margin-left:auto;}
+.pill{display:inline-block;font-size:12px;padding:3px 10px;border-radius:20px;background:#eee;color:#555;margin-left:8px;}
+.pill.on{background:#e6f4ea;color:#1f9d57;}
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+@media(max-width:720px){.cards{grid-template-columns:1fr;}}
+.card{border:2px solid #ddd;border-radius:14px;background:#fff;padding:14px 16px;}
+.card .tag{display:inline-block;font-size:11px;font-weight:700;color:#fff;padding:2px 8px;border-radius:20px;margin-bottom:8px;}
+.card.biz .tag{background:var(--biz);}
+.card.inf .tag{background:var(--inf);}
+.card h3{margin:0 0 10px;font-size:15px;}
+.row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.row input{flex:1;min-width:120px;padding:7px 9px;border:1.5px solid #ccc;border-radius:7px;font-size:13px;}
+.card .btn{background:var(--biz);}
+.card.inf .btn{background:var(--inf);}
+
+.log-wrap{position:relative;}
+.log{background:#1d1f21;color:#d6e9c9;border-radius:12px;padding:14px 16px;
+  font-family:"SFMono-Regular",Consolas,monospace;font-size:12.5px;
+  white-space:pre-wrap;line-height:1.6;max-height:420px;overflow:auto;}
+.log .ok{color:#7ee787;} .log .err{color:#ff7b72;} .log .meta{color:#79c0ff;}
+.log .mock-tag{color:#f0883e;font-weight:700;}
+
+.mini-path{
+  display:block;margin:8px 0 4px;padding:10px 12px;background:#fafafa;border-radius:10px;
+  border:1.5px solid #e0e0e0;overflow-x:auto;
+}
+.mini-path svg{max-width:100%;height:auto;display:block;}
+.mini-path-title{font-size:11px;font-weight:700;color:#e0552b;margin-bottom:6px;display:block;}
+
+/* ========== 全景弹窗（复用 microservice-architecture.html 的完整逻辑）========== */
+.fullview-overlay{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(30,30,30,.78);z-index:999;overflow-y:auto;
+  padding:24px 16px;backdrop-filter:blur(4px);
+}
+.fullview-overlay.show{display:block;}
+.fv-inner{max-width:1440px;margin:0 auto;background:#fff;border-radius:16px;
+  box-shadow:0 24px 80px rgba(0,0,0,.40);position:relative;overflow:hidden;display:flex;flex-direction:column;min-height:80vh;}
+.fv-header{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 24px;border-bottom:2px solid #f0f0f0;background:#fafafa;flex-shrink:0;z-index:2;}
+.fv-header h2{margin:0;font-size:18px;color:#333;}
+.fv-close{cursor:pointer;border:none;border-radius:50%;width:34px;height:34px;
+  background:#eee;font-size:17px;line-height:34px;text-align:center;color:#666;transition:.15s;}
+.fv-close:hover{background:var(--gw);color:#fff;}
+
+.fv-main{display:flex;flex:1;min-height:0;overflow:hidden;}
+.fv-diag-area{flex:1;min-width:0;padding:0;overflow:auto;background:#fbfbfb;}
+.fv-stage{width:1100px;margin:0 auto;padding:14px;position:relative;}
+.fv-diag-area svg{width:100%;height:auto;display:block;border-radius:8px;}
+
+.fv-panel-area{
+  width:360px;min-width:360px;border-left:2px solid #e8e8e8;
+  background:#fafafa;overflow-y:auto;padding:18px 16px;z-index:1;
+}
+.fv-panel-title{font-size:17px;font-weight:800;color:#e0552b;margin:0 0 10px;
+  border-bottom:2px solid #e0552b;padding-bottom:8px;}
+.fv-panel-placeholder{color:#aaa;text-align:center;padding:60px 20px;font-size:13px;line-height:1.6;}
+.fv-panel-section{margin-top:12px;padding-top:10px;border-top:1px dashed #ddd;}
+.fv-panel-st{font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
+.fv-panel-row{display:flex;justify-content:space-between;margin:4px 0;font-size:12.5px;line-height:1.5;}
+.fv-panel-k{color:#999;font-weight:600;flex-shrink:0;margin-right:10px;}
+.fv-panel-v{color:#333;text-align:right;word-break:break-all;}
+.fv-panel-path{background:#f6f6f6;border-radius:6px;padding:7px 10px;
+  font-family:Consolas,monospace;font-size:11.5px;color:#c44d26;
+  margin:5px 0;border-left:3px solid #e0552b;}
+
+/* SVG 节点样式 — 与 microservice-architecture.html 完全一致 */
+.fv-node{cursor:pointer;}
+.fv-node .fv-hit{fill:transparent;transition:fill .15s;}
+.fv-node:hover .fv-hit{fill:rgba(0,0,0,.03);}
+.fv-box{stroke-width:2.2;fill:none;stroke-linejoin:round;stroke-linecap:round;transition:all .3s ease;}
+.fv-box2{stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;transition:all .3s ease;}
+.fv-label{font-size:15px;font-weight:700;fill:#2a2a2a;transition:opacity .35s ease, fill .25s ease;}
+.fv-sub{font-size:11.5px;fill:#777;transition:opacity .35s ease;}
+.fv-badge{font-size:10px;font-weight:600;fill:#fff;pointer-events:none;opacity:0;transition:opacity .25s;}
+.fv-edge{fill:none;stroke:#6b6b6b;stroke-width:1.8;opacity:.75;transition:all .35s ease, stroke .35s ease, stroke-width .35s ease;}
+.fv-edge-label{font-size:13px;fill:#666;font-style:italic;transition:opacity .35s ease;}
+.fv-edge-detail{font-size:12px;fill:#888;font-style:normal;transition:opacity .35s ease;pointer-events:none;}
+.fv-dimmed .fv-box,.fv-dimmed .fv-box2{opacity:.12 !important;}
+.fv-dimmed .fv-label,.fv-dimmed .fv-sub{opacity:.15 !important;}
+.fv-dimmed .fv-badge{opacity:0 !important;}
+.fv-hidden-edge{opacity:.04 !important;}
+.fv-active-node .fv-box{stroke:#e0552b;stroke-width:3;filter:drop-shadow(0 2px 6px rgba(224,85,43,.25));}
+.fv-active-node .fv-label,.fv-active-node .fv-sub{opacity:1 !important;}
+.fv-active-node .fv-badge{opacity:1 !important;}
+.fv-active-edge{stroke:#e0552b !important;stroke-width:2.5 !important;opacity:1 !important;}
+.fv-hover .fv-box{stroke:#f09060 !important;stroke-width:2.4 !important;}
+.fv-hover-edge{stroke:#f09060 !important;stroke-width:2.2 !important;opacity:.95 !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <h1>微服务架构图 · 动态版</h1>
+    <button class="btn btn-outline" id="showFullBtn">&#x1F4D1; 查看全景架构图</button>
+    <a class="btn-link" href="microservice-architecture.html" target="_blank" rel="noopener">&#x1F517; 独立全景图(新窗口)</a>
+  </div>
+  <div class="sub">前端（静态托管）+ EdgeOne <b>Node Functions</b>（<code>cloud-functions/</code>）真实可调用的后端 API。<br>
+  <span id="modeHint" style="color:#f0883e;font-weight:700;"></span></div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--gw)"></i>网关层 API Gateway</span>
+    <span><i class="dot" style="background:var(--biz)"></i>业务服务层</span>
+    <span><i class="dot" style="background:var(--inf)"></i>基础设施</span>
+  </div>
+
+  <div class="panel">
+    <div class="token-bar">
+      <strong style="font-size:13px;">&#x1F512; Auth Service（登录拿 Token）</strong>
+      <input id="username" value="u1001" style="width:130px;">
+      <input id="password" value="pass123" type="password" style="width:120px;">
+      <button class="btn" id="loginBtn">登录 /api/auth</button>
+      <span class="hint">演示账号：u1001 / pass123</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;">当前身份：<span id="who" class="pill">未登录</span></div>
+  </div>
+
+  <div class="cards">
+    <div class="card biz">
+      <span class="tag">业务 · User</span><h3>&#x1F464; User Service</h3>
+      <div class="row"><input id="uid" value="u1001"></div>
+      <button class="btn btn-blue" id="userBtn">GET /api/user/:id（需 Token）</button>
+    </div>
+    <div class="card biz">
+      <span class="tag">业务 · Order</span><h3>&#x1F6D7; Order Service</h3>
+      <div class="row"><input id="ouid" value="u1001"></div>
+      <div class="row"><input id="item" value='[{"price":99,"qty":2}]'></div>
+      <button class="btn btn-blue" id="orderBtn">POST /api/order</button>
+    </div>
+    <div class="card biz">
+      <span class="tag">业务 · Payment</span><h3>&#x1F4B3; Payment Service</h3>
+      <div class="row"><input id="oid" placeholder="orderId"></div>
+      <div class="row"><input id="method" value="wechat"></div>
+      <button class="btn btn-blue" id="payBtn">POST /api/payment</button>
+    </div>
+    <div class="card inf">
+      <span class="tag">基础 · Notification</span><h3>&#x1F514; Notification Service</h3>
+      <div class="row"><input id="nuid" value="u1001"></div>
+      <div class="row"><input id="msg" value="您的订单已支付成功"></div>
+      <button class="btn btn-green" id="notifyBtn">POST /api/notify</button>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px;">
+    <strong style="font-size:13px;">&#x1F4E5; 调用日志 / 响应 + 服务调用路径图</strong>
+    <div class="log-wrap">
+      <div class="log" id="log" style="margin-top:10px;">// 点击按钮发起请求
+// 部署到 EdgeOne Pages 后走真实 Functions；本地预览自动使用 Mock 数据
+// 完整调用链：登录 &#x2192; Token &#x2192; 查资料 &#x2192; 下单 &#x2192; 支付 &#x2192; 通知</div>
+    </div>
+  </div>
+</div>
+
+<!-- 全景架构图弹窗 -->
+<div class="fullview-overlay" id="fullOverlay">
+  <div class="fv-inner">
+    <div class="fv-header">
+      <h2>&#x1F4D1; 微服务系统架构图 &mdash; 全景视图（与 showtest.edgeone.dev 一致）</h2>
+      <button class="fv-close" id="fvClose">&#x2715;</button>
+    </div>
+    <div class="fv-main">
+      <div class="fv-diag-area">
+        <div class="fv-stage" id="fvStage"></div>
+      </div>
+      <div class="fv-panel-area" id="fvPanelArea">
+        <div class="fv-panel-placeholder" id="fvPanelPlaceholder">点击图中节点查看详情</div>
+        <div id="fvPanelContent" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// Part 1: Dynamic API interaction + Mock engine (FIXED)
+// ================================================================
+(function(){
+'use strict';
+
+var TOKEN = null, ME = null;
+
+// ---- 环境判定：本地预览走 Mock，线上走真实 Cloud Functions ----
+// 线上域名（*.edgeone.dev / *.edgeone.app / https）永远不使用 Mock
+var HOST = location.hostname || '';
+var IS_PROD = location.protocol === 'https:' ||
+              /\.edgeone\.dev$/.test(HOST) ||
+              /\.edgeone\.app$/.test(HOST);
+// 调试开关：URL 加 ?mock=1 可强制本地 Mock（仅用于本地排错）
+var FORCE_MOCK = /[?&]mock=1\b/.test(location.search);
+var IS_LOCAL_PREVIEW = (
+  location.protocol === 'file:' ||
+  HOST === 'localhost' ||
+  HOST === '127.0.0.1' ||
+  HOST === ''
+);
+// 线上环境绝不走 Mock；只有本地预览（且非强制生产）才用 Mock
+var USE_MOCK = FORCE_MOCK || (IS_LOCAL_PREVIEW && !IS_PROD);
+var MODE_EL = document.getElementById('modeHint');
+if (USE_MOCK) {
+  MODE_EL.textContent = '\u26A0 Local preview - using Mock API data (no backend)';
+  MODE_EL.style.color = '#f0883e';
+} else {
+  MODE_EL.textContent = '\u2713 Live - connected to EdgeOne Cloud Functions';
+  MODE_EL.style.color = '#1f9d57';
+}
+
+function logLine(t, cls) {
+  var el = document.getElementById('log'), d = document.createElement('div');
+  if (cls) d.className = cls;
+  d.textContent = t;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setWho() {
+  var p = document.getElementById('who');
+  if (ME) {
+    p.textContent = '\u5DF2\u767B\u5F55: ' + ME.name + ' (' + ME.id + ')';
+    p.className = 'pill on';
+  } else {
+    p.textContent = '\u672A\u767B\u5F55';
+    p.className = 'pill';
+  }
+}
+
+function authHdr() {
+  return TOKEN ? { 'Authorization': 'Bearer ' + TOKEN } : {};
+}
+
+// ===== Mock Data Engine =====
+var MOCK_USERS = {
+  u1001: { id: 'u1001', name: '\u5F20\u4E09', email: 'zhangsan@ex.com', role: 'user' },
+  admin: { id: 'admin', name: 'Admin', email: 'admin@ex.com', role: 'admin' }
+};
+var ORDER_SEQ = 1000;
+
+function genToken(user) {
+  var hdr = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  var pl = btoa(JSON.stringify({
+    sub: user.id, name: user.name, role: user.role,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600
+  }));
+  return hdr + '.' + pl + '.mock-sig';
+}
+
+function mockDelay() {
+  return new Promise(function(r){ setTimeout(r, 60 + Math.random() * 180); });
+}
+
+async function callMock(method, url, body, svcId) {
+  await mockDelay();
+  var j = null, ok = true;
+
+  if (url.indexOf('/api/auth') !== -1 && method === 'POST') {
+    var u = (body && body.username) || '', pw = (body && body.password) || '';
+    if (MOCK_USERS[u] && pw === 'pass123') {
+      var user = MOCK_USERS[u];
+      j = { token: genToken(user), user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+    } else {
+      j = { error: '\u7528\u6237\u540D\u6216\u5BC6\u7801\u9519\u8BEF' }; ok = false;
+    }
+  }
+  else if (url.indexOf('/api/user/') !== -1 && method === 'GET') {
+    var uid2 = url.split('/api/user/')[1] || '';
+    if (!TOKEN) { j = { error: 'Unauthorized' }; ok = false; }
+    else if (MOCK_USERS[uid2]) j = MOCK_USERS[uid2];
+    else { j = { error: 'not found' }; ok = false; }
+  }
+  else if (url.indexOf('/api/order') !== -1 && method === 'POST') {
+    ORDER_SEQ++;
+    var items = (body && body.items) || [];
+    j = {
+      orderId: 'ORD-' + String(ORDER_SEQ).padStart(6, '0'),
+      userId: (body && body.userId) || '',
+      items: items,
+      total: items.reduce(function(s, i) { return s + (i.price || 0) * (i.qty || 1); }, 0),
+      status: 'created'
+    };
+  }
+  else if (url.indexOf('/api/payment') !== -1 && method === 'POST') {
+    j = {
+      orderId: (body && body.orderId) || '',
+      method: (body && body.method) || '',
+      status: 'paid',
+      txnId: 'TXN-' + Date.now()
+    };
+  }
+  else if (url.indexOf('/api/notify') !== -1 && method === 'POST') {
+    j = {
+      userId: (body && body.userId) || '',
+      message: (body && body.message) || '',
+      status: 'sent',
+      channels: ['push', 'email']
+    };
+  }
+  else {
+    j = { error: 'unknown endpoint' }; ok = false;
+  }
+
+  return { res: { ok: ok, status: ok ? 200 : 401 }, json: j, text: JSON.stringify(j) };
+}
+
+// ===== 统一调用入口 =====
+async function apiCall(method, url, body, svcId) {
+  // 打印请求
+  logLine('\u27A1 ' + method + ' ' + (body ? '  ' + JSON.stringify(body) : ''), 'meta');
+
+  var t0 = Date.now();
+
+  if (USE_MOCK) {
+    // 本地模式：直接走 Mock，不调 fetch
+    var mr = await callMock(method, url, body, svcId);
+    var dt = Date.now() - t0;
+    logLine('\u2B05 ' + mr.res.status + '(' + dt + 'ms)' + (mr.res.ok ? ' OK [MOCK]' : ' ERR [MOCK]'), mr.res.ok ? 'ok' : 'err');
+    logLine(JSON.stringify(mr.json, null, 2));
+    if (mr.res.ok && svcId) renderMiniPath(svcId);
+    return mr;
+  }
+
+  // 生产模式：走真实 fetch
+  try {
+    var opts = { method: method, headers: Object.assign({ 'Content-Type': 'application/json' }, authHdr()) };
+    if (body != null) opts.body = JSON.stringify(body);
+    var resp = await fetch(url, opts), txt = await resp.text();
+    var dt = Date.now() - t0;
+    logLine('\u2B05 ' + resp.status + '(' + dt + 'ms)' + (resp.ok ? ' OK' : ' ERR'), resp.ok ? 'ok' : 'err');
+    var parsed;
+    try { parsed = JSON.parse(txt); } catch(e) { parsed = txt; }
+    logLine(typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2));
+    if (resp.ok && svcId) renderMiniPath(svcId);
+    return { res: resp, text: txt, json: parsed };
+  } catch (e) {
+    // 生产环境：真实 fetch 失败则如实报错，绝不静默降级到 Mock
+    logLine('[ERROR] ' + (e && e.message ? e.message : e), 'err');
+    return { res: { ok: false, status: 0 }, text: '', json: { error: String(e && e.message ? e.message : e) } };
+  }
+}
+
+// ===== 按钮事件绑定 =====
+document.getElementById('loginBtn').onclick = async function() {
+  var u = document.getElementById('username').value;
+  var p = document.getElementById('password').value;
+  var r = await apiCall('POST', '/api/auth', { username: u, password: p }, 'auth');
+  if (r.res.ok && r.json && r.json.token) {
+    TOKEN = r.json.token;
+    ME = r.json.user;
+    setWho();
+    logLine('\u2713 Token saved (Bearer ' + TOKEN.slice(0, 20) + '...)', 'ok');
+  } else {
+    logLine('\u2717 Login failed: ' + ((r.json && r.json.error) || 'unknown'), 'err');
+  }
+};
+
+document.getElementById('userBtn').onclick = async function() {
+  if (!TOKEN) { logLine('\u26A0 Please login first', 'err'); return; }
+  await apiCall('GET', '/api/user/' + encodeURIComponent(document.getElementById('uid').value), null, 'user');
+};
+
+document.getElementById('orderBtn').onclick = async function() {
+  var items = [];
+  try { items = JSON.parse(document.getElementById('item').value || '[]'); } catch(e) {}
+  var r = await apiCall('POST', '/api/order', {
+    userId: document.getElementById('ouid').value, items: items
+  }, 'order');
+  if (r.res.ok && r.json && r.json.orderId) {
+    document.getElementById('oid').value = r.json.orderId;
+  }
+};
+
+document.getElementById('payBtn').onclick = async function() {
+  await apiCall('POST', '/api/payment', {
+    orderId: document.getElementById('oid').value,
+    method: document.getElementById('method').value
+  }, 'payment');
+};
+
+document.getElementById('notifyBtn').onclick = async function() {
+  await apiCall('POST', '/api/notify', {
+    userId: document.getElementById('nuid').value,
+    message: document.getElementById('msg').value
+  }, 'notify');
+};
+
+
+// ================================================================
+// Part 2: Mini path diagrams (after each successful API call)
+// ================================================================
+var NS_SVG = 'http://www.w3.org/2000/svg';
+
+function mRough(x1,y1,x2,y2,r) {
+  r = r || 1.2;
+  var d = x2-x1, e = y2-y1, L = Math.hypot(d,e) || 1;
+  var nx = -e/L, ny = d/L, off = (Math.random()-0.5)*r*2;
+  var mx = (x1+x2)/2 + nx*off, my = (y1+y2)/2 + ny*off;
+  return 'M'+x1+' '+y1+' Q'+((x1+mx)/2+(Math.random()-0.5)*r)+' '+((y1+my)/2+(Math.random()-0.5)*r)+' '+mx+' '+my+
+    ' Q'+((mx+x2)/2+(Math.random()-0.5)*r)+' '+((my+y2)/2+(Math.random()-0.5)*r)+' '+x2+' '+y2;
+}
+function mRR(x,y,w,h,r) {
+  r = r || 1.3;
+  function p(rr){ return mRough(x,y,x+w,y,rr)+' '+mRough(x+w,y,x+w,y+h,rr)+' '+mRough(x+w,y+h,x,y+h,rr)+' '+mRough(x,y+h,x,y,rr); }
+  return [p(r), p(r*.65)];
+}
+function mkArrMarker() {
+  var m = document.createElementNS(NS_SVG,'marker');
+  m.setAttribute('id','mpA'); m.setAttribute('viewBox','0 0 10 10');
+  m.setAttribute('refX','9'); m.setAttribute('refY','5'); m.setAttribute('markerWidth','7'); m.setAttribute('markerHeight','7');
+  m.setAttribute('orient','auto-start-reverse');
+  var p = document.createElementNS(NS_SVG,'path'); p.setAttribute('d','M0 0L10 5L0 10z'); p.setAttribute('fill','#888'); m.appendChild(p);
+  return m;
+}
+
+var PATH_MAP = {
+  auth: { title: '\uD83D\uDD11 Auth 登录路径', w:520, h:180,
+    nodes: [
+      {i:'c',l:'Client',x:10,y:60,w:80,h:44,c:'#ddd',fc:'#f9f9f9'},
+      {i:'g',l:'API GW',x:130,y:55,w:110,h:54,c:'#d6451f',fc:'#ffe9e0'},
+      {i:'a',l:'Auth Svc',x:290,y:55,w:120,h:54,c:'#2b6fd6',fc:'#e3eefc'},
+      {i:'d',l:'PostgreSQL',x:450,y:55,w:70,h:54,c:'#1f9d57',fc:'#e2f6ea'}
+    ],
+    edges: [['c','g','POST /api/auth'],['g','a','gRPC Verify'],['a','d','SELECT cred']]
+  },
+  user: { title: '\uD83D\uDC64 User 查询路径', w:540, h:180,
+    nodes: [
+      {i:'c',l:'Client',x:10,y:60,w:80,h:44,c:'#ddd',fc:'#f9f9f9'},
+      {i:'g',l:'API GW',x:130,y:55,w:110,h:54,c:'#d6451f',fc:'#ffe9e0'},
+      {i:'u',l:'User Svc',x:290,y:55,w:120,h:54,c:'#2b6fd6',fc:'#e3eefc'},
+      {i:'d',l:'PostgreSQL',x:450,y:55,w:70,h:54,c:'#1f9d57',fc:'#e2f6ea'}
+    ],
+    edges: [['c','g','GET /api/users/:id'],['g','u','REST Proxy+Bearer'],['u','d','Prisma CRUD']]
+  },
+  order: { title: '\uD83E\uDDE7 Order 下单路径', w:600, h:200,
+    nodes: [
+      {i:'c',l:'Client',x:10,y:68,w:80,h:44,c:'#ddd',fc:'#f9f9f9'},
+      {i:'g',l:'Gateway',x:130,y:63,w:100,h:54,c:'#d6451f',fc:'#ffe9e0'},
+      {i:'o',l:'Order Svc',x:280,y:63,w:105,h:54,c:'#2b6fd6',fc:'#e3eefc'},
+      {i:'k',l:'Kafka',x:430,y:25,w:85,h:40,c:'#1f9d57',fc:'#e2f6ea'},
+      {i:'d',l:'PostgreSQL',x:440,y:95,w:70,h:50,c:'#1f9d57',fc:'#e2f6ea'}
+    ],
+    edges: [['c','g','POST /orders'],['g','o','REST Proxy'],['o','d','Saga Txn'],['o','k','Pub order-evts']]
+  },
+  payment: { title: '\uD83D\uDCB3 Payment 支付路径', w:580, h:200,
+    nodes: [
+      {i:'c',l:'Client',x:10,y:68,w:80,h:44,c:'#ddd',fc:'#f9f9f9'},
+      {i:'g',l:'Gateway',x:125,y:63,w:95,h:54,c:'#d6451f',fc:'#ffe9e0'},
+      {i:'p',l:'Pay Svc',x:270,y:63,w:115,h:54,c:'#2b6fd6',fc:'#e3eefc'},
+      {i:'k',l:'Kafka',x:430,y:25,w:85,h:40,c:'#1f9d57',fc:'#e2f6ea'},
+      {i:'d',l:'PostgreSQL',x:435,y:95,w:70,h:50,c:'#1f9d57',fc:'#e2f6ea'}
+    ],
+    edges: [['c','g','POST /payments'],['g','p','REST+Retry'],['p','d','ACID Txn'],['p','k','Pub pay-evts']]
+  },
+  notify: { title: '\uD83D\uDD14 Notification 推送路径', w:560, h:190,
+    nodes: [
+      {i:'c',l:'Caller',x:10,y:62,w:78,h:44,c:'#ddd',fc:'#f9f9f9'},
+      {i:'g',l:'GW',x:125,y:58,w:95,h:52,c:'#d6451f',fc:'#ffe9e0'},
+      {i:'k',l:'Kafka',x:270,y:20,w:85,h:38,c:'#1f9d57',fc:'#e2f6ea'},
+      {i:'n',l:'Notify Svc',x:280,y:82,w:115,h:52,c:'#1f9d57',fc:'#e2f6ea'},
+      {i:'u',l:'User',x:445,y:62,w:70,h:52,c:'#ddd',fc:'#f9f9f9'}
+    ],
+    edges: [['c','g','POST /notify'],['g','n','gRPC F&F'],['k','n','Consumer Poll'],['n','u','Push/Email/SMS']]
+  }
+};
+
+function renderMiniPath(id) {
+  var cfg = PATH_MAP[id];
+  if (!cfg) return;
+  var wrap = document.createElement('div');
+  wrap.className = 'mini-path';
+
+  var titleSpan = document.createElement('span');
+  titleSpan.className = 'mini-path-title';
+  titleSpan.textContent = cfg.title;
+  wrap.appendChild(titleSpan);
+
+  var svg = document.createElementNS(NS_SVG, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + cfg.w + ' ' + cfg.h);
+
+  var defs = document.createElementNS(NS_SVG, 'defs');
+  defs.appendChild(mkArrMarker());
+  svg.appendChild(defs);
+
+  var nmap = {};
+  for (var ni = 0; ni < cfg.nodes.length; ni++) nmap[cfg.nodes[ni].i] = cfg.nodes[ni];
+
+  // edges first (below nodes)
+  for (var ei = 0; ei < cfg.edges.length; ei++) {
+    var e = cfg.edges[ei], sn = nmap[e[0]], tn = nmap[e[1]];
+    if (!sn || !tn) continue;
+    var sx = sn.x + sn.w/2, sy = sn.y + sn.h/2;
+    var tx = tn.x + tn.w/2, ty = tn.y + tn.h/2;
+    var midY = sy + (ty - sy) * 0.45;
+
+    var path = document.createElementNS(NS_SVG, 'path');
+    path.setAttribute('d', 'M'+sx+' '+sy+' L'+sx+' '+midY+' L'+tx+' '+midY+' L'+tx+' '+ty);
+    path.setAttribute('fill', 'none');
+    path.style.cssText = 'stroke:#888; stroke-width:1.6; stroke-dasharray:4,3; opacity:0.72;';
+    path.setAttribute('marker-end', 'url(#mpA)');
+    svg.appendChild(path);
+
+    var lbl = document.createElementNS(NS_SVG, 'text');
+    lbl.setAttribute('x', (sx+tx)/2);
+    lbl.setAttribute('y', midY - 5);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.style.cssText = 'font-size:10px; fill:#555; font-style:italic;';
+    lbl.textContent = e[2];
+    svg.appendChild(lbl);
+  }
+
+  // nodes
+  for (var ni2 = 0; ni2 < cfg.nodes.length; ni2++) {
+    var nd = cfg.nodes[ni2], g = document.createElementNS(NS_SVG, 'g');
+    var rects = mRR(nd.x, nd.y, nd.w, nd.h);
+    var p1 = document.createElementNS(NS_SVG, 'path');
+    p1.setAttribute('d', rects[0]);
+    p1.style.cssText = 'stroke:'+nd.c+'; stroke-width:2; fill:'+nd.fc+'; fill-opacity:0.92;';
+    var p2 = document.createElementNS(NS_SVG, 'path');
+    p2.setAttribute('d', rects[1]);
+    p2.style.cssText = 'stroke:'+nd.c+'; stroke-width:1; fill:none;';
+    var txt = document.createElementNS(NS_SVG, 'text');
+    txt.setAttribute('x', nd.x + nd.w/2);
+    txt.setAttribute('y', nd.y + nd.h/2 + 4);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.style.cssText = 'font-size:11px; font-weight:700; fill:#333;';
+    txt.textContent = nd.l;
+    g.appendChild(p1); g.appendChild(p2); g.appendChild(txt);
+    svg.appendChild(g);
+  }
+  wrap.appendChild(svg);
+
+  var logEl = document.getElementById('log');
+  logEl.appendChild(wrap);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+
+// ================================================================
+// Part 3: Full-view architecture diagram
+//         完整复制 microservice-architecture.html 的 SVG 生成逻辑
+//         与 showtest.edgeone.dev 渲染结果完全一致
+// ================================================================
+(function() {
+'use strict';
+try {
+
+var NS = 'http://www.w3.org/2000/svg';
+var stage = document.getElementById('fvStage');
+if (!stage) return;
+
+var EMOJI = {
+  globe: '\uD83C\uDF10', lock: '\uD83D\uDD11', person: '\uD83D\uDC64',
+  receipt: '\uD83E\uDDE7', card: '\uD83D\uDCB3', bell: '\uD83D\uDD14',
+  envelope: '\uD83D\uDCE8', db: '\uD83C\uDCBE'
+};
+
+var COLORS = {
+  gateway: { s: '#d6451f', f: '#ffe9e0' },
+  business: { s: '#2b6fd6', f: '#e3eefc' },
+  infra:   { s: '#1f9d57', f: '#e2f6ea' }
+};
+
+// --- 与 microservice-architecture.html 完全一致的节点定义 ---
+var NODES = [
+  { id: 'gateway', label: EMOJI.globe + ' API Gateway',
+    sub: '\u7F51\u5173\u5165\u53E3 \u00B7 \u8DEF\u7531 / \u9650\u6D41 / \u8BA4\u8BC1',
+    layer: 'gateway', x: 380, y: 38, w: 320, h: 70 },
+  { id: 'auth',   label: EMOJI.lock + ' Auth Service',
+    sub: '\u8BA4\u8BC1 / \u9274\u6743 / JWT \u7B7E\u53D1',
+    layer: 'business', x: 48, y: 218, w: 170, h: 76 },
+  { id: 'user',   label: EMOJI.person + ' User Service',
+    sub: '\u7528\u6237\u8D44\u6599 / Profile \u7BA1\u7406',
+    layer: 'business', x: 238, y: 218, w: 170, h: 76 },
+  { id: 'order',  label: EMOJI.receipt + ' Order Service',
+    sub: '\u4E0B\u5355 / \u8BA2\u5355\u72B6\u6001\u673A',
+    layer: 'business', x: 450, y: 218, w: 180, h: 76 },
+  { id: 'payment',label: EMOJI.card + ' Payment Service',
+    sub: '\u652F\u4ED8\u6E20\u9053 / \u5BF9\u8D26 / \u9000\u6B3E',
+    layer: 'business', x: 670, y: 218, w: 180, h: 76 },
+  { id: 'notify', label: EMOJI.bell + ' Notification',
+    sub: '\u63A8\u9001 / \u90AE\u4EF6 / \u77ED\u4FE1',
+    layer: 'business', x: 882, y: 218, w: 175, h: 76 },
+  { id: 'kafka',  label: EMOJI.envelope + ' Message Queue',
+    sub: 'Kafka \u00B7 \u5F02\u6B65\u4E8B\u4EF6\u603B\u7EBF',
+    layer: 'infra', x: 260, y: 500, w: 250, h: 78 },
+  { id: 'db',     label: EMOJI.db + ' Database',
+    sub: 'PostgreSQL \u4E3B\u4ECE\u96C6\u7FA4',
+    layer: 'infra', x: 608, y: 500, w: 270, h: 78 }
+];
+
+var NM = {};
+for (var i = 0; i < NODES.length; i++) NM[NODES[i].id] = NODES[i];
+
+// --- 连接关系 ---
+var EDGES = [
+  ['gateway','auth',   '\u9274\u6743',   { protocol: 'gRPC', endpoint: '/auth.VerifyToken', desc: '\u6821\u9A8C Bearer Token' }],
+  ['gateway','user',   '\u67E5\u8BE2',   { protocol: 'REST HTTP/2', endpoint: 'GET /api/v1/users/:id', desc: '\u53CD\u5411\u4EE3\u7406' }],
+  ['gateway','order',  '\u4E0B\u5355',   { protocol: 'REST HTTP/2', endpoint: 'POST /api/v1/orders', desc: '\u9650\u6D41 500/s' }],
+  ['gateway','payment','\u652F\u4ED8',   { protocol: 'REST HTTP/2', endpoint: 'POST /api/v1/payments', desc: '\u91CD\u8BD5+\u7194\u65AD' }],
+  ['gateway','notify', '\u901A\u77E5',   { protocol: 'Internal gRPC', endpoint: '/notify.Trigger', desc: 'Fire-and-forget' }],
+  ['order',  'payment', '\u6263\u6B3E',   { protocol: 'gRPC', endpoint: '/payment.Charge', desc: 'Streaming RPC' }],
+  ['order',  'kafka',   '\u53D1\u5E03\u4E8B\u4EF6',{ protocol: 'Kafka Producer', endpoint: 'topic: order-events', desc: 'Async Publish' }],
+  ['payment','kafka',   '\u53D1\u5E03\u4E8B\u4EF6',{ protocol: 'Kafka Producer', endpoint: 'topic: payment-events', desc: 'Async Publish' }],
+  ['kafka',  'notify',  '\u6D88\u8D39\u4E8B\u4EF6',{ protocol: 'Kafka Consumer Group', endpoint: 'topic: *-events', desc: 'Poll Loop' }],
+  ['auth',   'db',     '\u8BFB\u51ED\u8BC1', { protocol: 'PostgreSQL Driver', endpoint: 'SELECT credentials.*', desc: '\u8BFB\u4ECE\u5E93' }],
+  ['user',   'db',     '\u8BFB\u5199',   { protocol: 'ORM (Prisma)', endpoint: 'users/profiles CRUD', desc: '\u4E3B\u4ECE\u5206\u79BB' }],
+  ['order',  'db',     '\u8BFB\u5199',   { protocol: 'ORM (Prisma)', endpoint: 'orders/order_items', desc: 'Saga Pattern' }],
+  ['payment','db',     '\u8BB0\u8D26',   { protocol: 'Raw SQL ACID', endpoint: 'transactions/ledgers', desc: 'WAL consistent' }]
+];
+
+// --- 手绘工具函数（与原版完全一致） ---
+function rnd(a,b){return a+Math.random()*(b-a);}
+
+function roughEdge(x1,y1,x2,y2,r){
+  r=r||1.2; var d=x2-x1,e=y2-y1,L=Math.hypot(d,e)||1,nx=-e/L,ny=d/L,o=rnd(-1,1)*r*1.6,mx=(x1+x2)/2+nx*o,my=(y1+y2)/2+ny*o;
+  return 'M'+x1.toFixed(1)+' '+y1.toFixed(1)+
+    ' Q'+(x1+(mx-x1)*.5+rnd(-r,r)).toFixed(1)+' '+(y1+(my-y1)*.5+rnd(-r,r)).toFixed(1)+' '+mx.toFixed(1)+' '+my.toFixed(1)+
+    ' Q'+(x2+(mx-x2)*.5+rnd(-r,r)).toFixed(1)+' '+(y2+(my-y2)*.5+rnd(-r,r)).toFixed(1)+' '+x2.toFixed(1)+' '+y2.toFixed(1);
+}
+
+function roughRect(x,y,w,h,r){
+  r=r||1.7;
+  function p(rr){return roughEdge(x,y,x+w,y,rr)+' '+roughEdge(x+w,y,x+w,y+h,rr)+' '+roughEdge(x+w,y+h,x,y+h,rr)+' '+roughEdge(x,y+h,x,y,rr);}
+  return [p(r),p(r*.72)];
+}
+
+function bP(n,tx,ty){
+  var cx=n.x+n.w/2,cy=n.y+n.h/2,dx=tx-cx,dy=ty-cy;
+  if(!dx&&!dy)return{x:cx,y:cy};
+  var s=1/Math.max(Math.abs(dx)/(n.w/2),Math.abs(dy)/(n.h/2));
+  return{x:cx+dx*s,y:cy+dy*s};
+}
+
+function orthoRoute(sx,sy,tx,ty){
+  var my=sy+(ty-sy)*.42;
+  return 'M'+sx+' '+sy+' L'+sx+' '+my+' L'+tx+' '+my+' L'+tx+' '+ty;
+}
+
+// --- 创建 SVG ---
+var svg = document.createElementNS(NS, 'svg');
+svg.setAttribute('viewBox', '0 0 1120 750');
+
+var defs = document.createElementNS(NS, 'defs');
+
+// 网格背景
+var pat = document.createElementNS(NS, 'pattern');
+pat.setAttribute('id','fvGrid');pat.setAttribute('width','22');pat.setAttribute('height','22');pat.setAttribute('patternUnits','userSpaceOnUse');
+var pg = document.createElementNS(NS, 'path');pg.setAttribute('d','M22 0L0 0 0 22');pg.setAttribute('fill','none');pg.setAttribute('stroke','#eee');pg.setAttribute('stroke-width','.8');
+pat.appendChild(pg);defs.appendChild(pat);
+
+// markers
+function mkMarker(id,col){
+  var m=document.createElementNS(NS,'marker');m.setAttribute('id',id);m.setAttribute('viewBox','0 0 10 10');m.setAttribute('refX','9');m.setAttribute('refY','5');m.setAttribute('markerWidth','7');m.setAttribute('markerHeight','7');m.setAttribute('orient','auto-start-reverse');
+  var p=document.createElementNS(NS,'path');p.setAttribute('d','M0 0L10 5L0 10z');p.setAttribute('fill',col);m.appendChild(p);return m;
+}
+defs.appendChild(mkMarker('fvArrow','#6b6b6b'));
+defs.appendChild(mkMarker('fvArrowAct','#e0552b'));
+svg.appendChild(defs);
+
+var bg = document.createElementNS(NS,'rect');
+bg.setAttribute('width','1120');bg.setAttribute('height','750');bg.setAttribute('fill','url(#fvGrid)');
+svg.appendChild(bg);
+
+var egG=document.createElementNS(NS,'g'), busG=document.createElementNS(NS,'g'),
+    ndG=document.createElementNS(NS,'g'), lgG=document.createElementNS(NS,'g');
+svg.appendChild(egG);svg.appendChild(busG);svg.appendChild(ndG);svg.appendChild(lgG);
+
+// --- 总线 ---
+var gw=NM.gateway, busY=gw.y+gw.h+30, busL=gw.x+40, busR=gw.x+gw.w-40;
+var busPath=roughEdge(busL,busY-2.5,busR,busY-2.5,0.8)+' '+roughEdge(busR,busY+2.5,busL,busY+2.5,0.8);
+var busEl=document.createElementNS(NS,'path');busEl.setAttribute('d',busPath);
+busEl.style.cssText='stroke:#d6451f;stroke-opacity:.32;stroke-width:2.8;fill:none;';
+busG.appendChild(busEl);
+
+var busLbl=document.createElementNS(NS,'text');
+busLbl.setAttribute('x',gw.x+gw.w/2);busLbl.setAttribute('y',busY-10);busLbl.setAttribute('text-anchor','middle');
+busLbl.style.cssText='font-size:12px;fill:#bbbb88;font-weight:600;font-style:italic;';
+busLbl.textContent='\u2190 \u5206\u53D1\u603B\u7EBF \u2192';
+busG.appendChild(busLbl);
+
+var gwDown=document.createElementNS(NS,'path');
+gwDown.setAttribute('d',roughEdge(gw.x+gw.w/2,gw.y+gw.h,gw.x+gw.w/2,busY+2.5,1));
+gwDown.style.cssText='stroke:#d6451f;stroke-opacity:.4;stroke-width:2;fill:none;';
+egG.appendChild(gwDown);
+
+// --- 绘制边 ---
+var EDGE_ELS = [];
+for(var ei=0;ei<EDGES.length;ei++){
+  var e=EDGES[ei],s=NM[e[0]],t=NM[e[1]],
+    sc={x:s.x+s.w/2,y:s.y+s.h/2},tc={x:t.x+t.w/2,y:t.y+t.h/2},sp,tp,d;
+  if(e[0]==='gateway'){sp={x:sc.x,y:busY+2.5};tp=bP(t,sc.x,busY);d=orthoRoute(sp.x,sp.y,tp.x,tp.y);}
+  else{sp=bP(s,tc.x,tc.y);tp=bP(t,sc.x,sc.y);d=roughEdge(sp.x,sp.y,tp.x,tp.y,1.4);}
+
+  var p=document.createElementNS(NS,'path');p.setAttribute('d',d);p.setAttribute('class','fv-edge');p.setAttribute('marker-end','url(#fvArrow)');
+  egG.appendChild(p);
+
+  var lg=document.createElementNS(NS,'g');
+  if(e[2]){
+    var tw=e[2].length*14+16,lx=(sp.x+tp.x)/2,ly=(sp.y+tp.y)/2;
+    var lb=document.createElementNS(NS,'rect');lb.setAttribute('x',lx-tw/2);lb.setAttribute('y',ly-22);lb.setAttribute('width',tw);lb.setAttribute('height','19');lb.setAttribute('fill','#fff');lb.setAttribute('rx','3');lb.setAttribute('opacity','.88');
+    var lt=document.createElementNS(NS,'text');lt.setAttribute('x',lx);lt.setAttribute('y',ly-8);lt.setAttribute('text-anchor','middle');lt.setAttribute('class','fv-edge-label');lt.textContent=e[2];
+    lg.appendChild(lb);lg.appendChild(lt);
+  }
+  if(e[3]){
+    var info=e[3],ddx=(tp.x-sp.x)||1,ddy=(tp.y-sp.y)||1,dlen=Math.hypot(ddx,ddy);
+    var offX=-ddy/dlen*22,offX2=-ddy/dlen*40,offY=ddx/dlen*22,offY2=ddx/dlen*40;
+    var mx2=(sp.x+tp.x)/2+offX2,my2=(sp.y+tp.y)/2+offY2;
+    var pt=document.createElementNS(NS,'text');pt.setAttribute('x',mx2);pt.setAttribute('y',my2-3);pt.setAttribute('text-anchor','middle');pt.setAttribute('class','fv-edge-detail');pt.textContent=info.protocol;lg.appendChild(pt);
+    var et=document.createElementNS(NS,'text');et.setAttribute('x',mx2);et.setAttribute('y',my2+14);et.setAttribute('text-anchor','middle');et.setAttribute('class','fv-edge-detail');et.style.fill='#ccc';var eptxt=info.endpoint;if(eptxt.length>28)eptxt=eptxt.slice(0,27)+'\u2026';et.textContent=eptxt;lg.appendChild(et);
+  }
+  egG.appendChild(lg);
+  p._lg=lg;
+  EDGE_ELS.push({el:p,src:e[0],tgt:e[1]});
+}
+
+// --- 绘制节点 ---
+var ND_ELS = {}, BADGES = {};
+for(var ni=0;ni<NODES.length;ni++){
+  var n=NODES[ni],cl=COLORS[n.layer],g=document.createElementNS(NS,'g');
+  g.setAttribute('class','fv-node');g.dataset.id=n.id;
+  var rs=roughRect(n.x,n.y,n.w,n.h);
+  var p1=document.createElementNS(NS,'path');p1.setAttribute('d',rs[0]);p1.setAttribute('class','fv-box');p1.setAttribute('stroke',cl.s);p1.setAttribute('fill',cl.f);
+  var p2=document.createElementNS(NS,'path');p2.setAttribute('d',rs[1]);p2.setAttribute('class','fv-box2');p2.setAttribute('stroke',cl.s);p2.setAttribute('fill','none');
+  var ht=document.createElementNS(NS,'rect');ht.setAttribute('x',n.x);ht.setAttribute('y',n.y);ht.setAttribute('width',n.w);ht.setAttribute('height',n.h);ht.setAttribute('class','fv-hit');
+  var t1=document.createElementNS(NS,'text');t1.setAttribute('x',n.x+n.w/2);t1.setAttribute('y',n.y+n.h/2-3);t1.setAttribute('text-anchor','middle');t1.setAttribute('class','fv-label');t1.textContent=n.label;
+  var t2=document.createElementNS(NS,'text');t2.setAttribute('x',n.x+n.w/2);t2.setAttribute('y',n.y+n.h/2+17);t2.setAttribute('text-anchor','middle');t2.setAttribute('class','fv-sub');t2.textContent=n.sub;
+  var badge=document.createElementNS(NS,'text');badge.setAttribute('x',n.x+n.w-14);badge.setAttribute('y',n.y+16);badge.setAttribute('class','fv-badge');badge.setAttribute('text-anchor','middle');badge.style.cssText='fill:#fff;font-weight:700;font-size:10px;';
+  var bc=document.createElementNS(NS,'circle');bc.setAttribute('cx',n.x+n.w-14);bc.setAttribute('cy',n.y+13);bc.setAttribute('r','9');bc.style.cssText='fill:#e0552b;opacity:0;transition:opacity .25s;';
+  g.appendChild(p1);g.appendChild(p2);g.appendChild(ht);g.appendChild(t1);g.appendChild(t2);g.appendChild(bc);g.appendChild(badge);
+  ndG.appendChild(g);
+  ND_ELS[n.id]=g;
+  BADGES[n.id] = { bg: bc, t: badge };
+}
+stage.appendChild(svg);
+
+// ---- 图例（内联样式，避免依赖未定义的 .legend-* 类）----
+var LEGEND = [
+  ["\u7F51\u5173\u5C42 Gateway", "gateway"],
+  ["\u4E1A\u52A1\u670D\u52A1\u5C42 Business", "business"],
+  ["\u57FA\u7840\u8BBE\u65BD\u5C42 Infrastructure", "infra"]
+];
+var _ly = 628;
+for (var _li = 0; _li < LEGEND.length; _li++) {
+  var _ld = LEGEND[_li], _lc = COLORS[_ld[1]];
+  var _lg2 = document.createElementNS(NS, "g");
+  var _lrs = roughRect(40, _ly, 26, 19, 1.1);
+  var _lr1 = document.createElementNS(NS, "path");
+  _lr1.setAttribute("d", _lrs[0]);
+  _lr1.setAttribute("stroke", _lc.s); _lr1.setAttribute("fill", _lc.f);
+  _lr1.setAttribute("stroke-width", "2"); _lr1.setAttribute("stroke-linejoin", "round");
+  var _lr2 = document.createElementNS(NS, "path");
+  _lr2.setAttribute("d", _lrs[1]);
+  _lr2.setAttribute("stroke", _lc.s); _lr2.setAttribute("fill", "none");
+  _lr2.setAttribute("stroke-width", "1.2"); _lr2.setAttribute("stroke-linejoin", "round");
+  var _ltx = document.createElementNS(NS, "text");
+  _ltx.setAttribute("x", 75); _ltx.setAttribute("y", _ly + 14);
+  _ltx.style.cssText = "font-size:13px;fill:#444;";
+  _ltx.textContent = _ld[0];
+  _lg2.appendChild(_lr1); _lg2.appendChild(_lr2); _lg2.appendChild(_ltx);
+  lgG.appendChild(_lg2);
+  _ly += 28;
+}
+var _hint = document.createElementNS(NS, "text");
+_hint.setAttribute("x", 40); _hint.setAttribute("y", _ly + 8);
+_hint.style.cssText = "font-size:11.5px;fill:#bbb;";
+_hint.textContent = "\uD83D\uDCA1 \u60AC\u505C\u9884\u89C8\u8FDE\u63A5 \u00B7 \u70B9\u51FB\u5C55\u5F00\u8BE6\u60C5";
+lgG.appendChild(_hint);
+
+// ---- 服务详情（与 showtest.edgeone.dev 完全一致）----
+var SD = {
+  gateway: {
+    name: "API Gateway",
+    role: "\u7EDF\u4E00\u5165\u53E3 & \u6D41\u91CF\u8C03\u5EA6\u4E2D\u5FC3",
+    tech: [ "Nginx / Kong / APISIX", "TLS \u7EC8\u7ED3", "JWT \u6821\u9A8C\u4E2D\u95F4\u4EF6", "\u4EE4\u724C\u6876\u9650\u6D41 (500 req/s)", "\u7070\u5EA6\u53D1\u5E03\u8DEF\u7531" ],
+    inbound: [{ src: "\u5BA2\u6237\u7AEF (Web/App)", proto: "HTTPS TLS 1.3", ep: "*", note: "\u5168\u91CF\u5165\u53E3\u6D41\u91CF" }],
+    outbound: [
+      { tgt: "Auth Service", proto: "gRPC Unary", ep: "/auth.VerifyToken", note: "\u6BCF\u6B21\u8BF7\u6C42\u5148\u9274\u6743" },
+      { tgt: "User Service", proto: "REST Reverse Proxy", ep: "GET|PUT /api/v1/users/:id", note: "\u900F\u4F20 + \u6CE8\u5165\u7528\u6237\u8EAB\u4EFD" },
+      { tgt: "Order Service", proto: "REST Reverse Proxy", ep: "POST /api/v1/orders", note: "\u9650\u6D41\u4FDD\u62A4" },
+      { tgt: "Payment Service", proto: "REST Reverse Proxy", ep: "POST /api/v1/payments", note: "\u91CD\u8BD5 + \u7194\u65AD" },
+      { tgt: "Notification", proto: "gRPC F-F", ep: "/notify.Trigger", note: "\u5F02\u6B65\u4E0D\u963B\u585E" }
+    ]
+  },
+  auth: {
+    name: "Auth Service",
+    role: "\u8EAB\u4EFD\u8BA4\u8BC1\u4E0E\u6388\u6743\u670D\u52A1",
+    tech: [ "Go / gRPC \u670D\u52A1", "Redis \u7F13\u5B58 Session", "JWT RS256 \u7B7E\u53D1", "OAuth2.0 / OIDC \u652F\u6301" ],
+    inbound: [{ src: "API Gateway", proto: "gRPC", ep: "/auth.VerifyToken | /auth.Login | /auth.Refresh", note: "\u9274\u6743 / \u767B\u5F55 / \u5237\u65B0 Token" }],
+    outbound: [{ tgt: "Database (\u53EA\u8BFB)", proto: "PostgreSQL", ep: "credentials / roles / permissions \u8868", note: "\u67E5\u8BE2\u51ED\u8BC1\u4E0E\u6743\u9650" }]
+  },
+  user: {
+    name: "User Service",
+    role: "\u7528\u6237\u8D44\u6599\u7BA1\u7406",
+    tech: [ "Node.js / Express", "Prisma ORM", "\u5934\u50CF OSS \u4E0A\u4F20", "\u7F13\u5B58\u5C42 (Redis)" ],
+    inbound: [
+      { src: "API Gateway", proto: "REST", ep: "GET|PATCH /api/v1/users/:id", note: "\u67E5\u8D44\u6599 / \u6539\u8D44\u6599" },
+      { src: "\u5185\u90E8\u670D\u52A1", proto: "gRPC", ep: "/user.GetProfile", note: "\u5176\u4ED6\u670D\u52A1\u62C9\u53D6\u7528\u6237\u4FE1\u606F" }
+    ],
+    outbound: [{ tgt: "Database", proto: "Prisma ORM", ep: "users / profiles / avatars \u8868", note: "\u4E3B\u4ECE\u8BFB\u5199\u5206\u79BB" }]
+  },
+  order: {
+    name: "Order Service",
+    role: "\u8BA2\u5355\u6838\u5FC3\u4E1A\u52A1",
+    tech: [ "Java Spring Boot", "Saga \u5206\u5E03\u5F0F\u4E8B\u52A1", "\u672C\u5730\u6D88\u606F\u8868", "\u5E93\u5B58\u9884\u6263" ],
+    inbound: [
+      { src: "API Gateway", proto: "REST", ep: "POST /api/v1/orders (create) GET /api/v1/orders/:id (query)", note: "\u4E0B\u5355 / \u67E5\u8BE2 / \u53D6\u6D88" },
+      { src: "Payment Service", proto: "gRPC callback", ep: "/order.OnPaymentResult", note: "\u652F\u4ED8\u56DE\u8C03\u901A\u77E5" }
+    ],
+    outgoing: [
+      { tgt: "Payment Service", proto: "gRPC Streaming", ep: "/payment.Charge", note: "\u53D1\u8D77\u6263\u6B3E\u8BF7\u6C42" },
+      { tgt: "Kafka", proto: "Producer", ep: "topic: order-events", note: "\u53D1\u5E03\u8BA2\u5355\u72B6\u6001\u4E8B\u4EF6" },
+      { tgt: "Database", proto: "Prisma ORM", ep: "orders / order_items \u8868", note: "Saga \u8865\u507F\u4E8B\u52A1" }
+    ]
+  },
+  payment: {
+    name: "Payment Service",
+    role: "\u652F\u4ED8\u7ED3\u7B97\u5904\u7406",
+    tech: [ "Go / gRPC", "\u591A\u6E20\u9053\u9002\u914D\u5668 (\u652F\u4ED8\u5B9D/\u5FAE\u4FE1/Stripe)", "\u5BF9\u8D26\u5B9A\u65F6\u4EFB\u52A1", "\u5E42\u7B49\u6027\u4FDD\u8BC1" ],
+    inbound: [
+      { src: "API Gateway", proto: "REST", ep: "POST /api/v1/payments (create) GET /api/v1/payments/:id", note: "\u521B\u5EFA\u652F\u4ED8 / \u67E5\u8BE2\u72B6\u6001" },
+      { src: "Order Service", proto: "gRPC Streaming", ep: "/payment.Charge", note: "\u6263\u6B3E\u6307\u4EE4" }
+    ],
+    outgoing: [
+      { tgt: "Kafka", proto: "Producer", ep: "topic: payment-events", note: "\u652F\u4ED8\u7ED3\u679C\u4E8B\u4EF6" },
+      { tgt: "Database", proto: "Raw SQL ACID", ep: "transactions / ledgers \u8868", note: "\u8D44\u91D1\u6D41\u6C34\u5F3A\u4E00\u81F4" }
+    ]
+  },
+  notify: {
+    name: "Notification Service",
+    role: "\u591A\u6E20\u9053\u6D88\u606F\u63A8\u9001",
+    tech: [ "Python FastAPI", "\u6A21\u677F\u5F15\u64CE (Jinja2)", "FCM/APNs \u63A8\u9001", "SMTP / SMS \u7F51\u5173" ],
+    incoming: [
+      { src: "API Gateway", proto: "gRPC F-F", ep: "/notify.Trigger", note: "\u540C\u6B65\u89E6\u53D1\u63A8\u9001" },
+      { src: "Kafka Consumer", proto: "Poll", ep: "topic: order-events + payment-events", note: "\u5F02\u6B65\u6D88\u8D39\u4E8B\u4EF6\u9A71\u52A8\u63A8\u9001" }
+    ]
+  },
+  kafka: {
+    name: "Apache Kafka",
+    role: "\u5F02\u6B65\u4E8B\u4EF6\u603B\u7EBF (\u89E3\u8026\u4E2D\u67A2)",
+    tech: [ "3 \u5206\u533A x 3 \u526F\u672C", "\u6D88\u606F\u4FDD\u7559 7 \u5929", "Schema Registry (Avro)", "\u6B7B\u4FE1\u961F\u5217 (DLQ)" ],
+    producers: [ "Order Service -> topic: order-events", "Payment Service -> topic: payment-events" ],
+    consumers: [ "Notification Service -> Consumer Group: notify-group" ]
+  },
+  db: {
+    name: "PostgreSQL Cluster",
+    role: "\u6301\u4E45\u5316\u5B58\u50A8\u5C42",
+    tech: [ "\u4E3B\u4ECE \u590D\u5236 (1\u4E3B2\u4ECE)", "PgBouncer \u8FDE\u63A5\u6C60", "WAL \u5F52\u6863\u5907\u4EFD", "Read Committed \u9694\u79BB\u7EA7\u522B" ],
+    readers: [ "Auth Service (\u53EA\u8BFB\u51ED\u8BC1)", "User Service (CRUD)", "Order Service (Saga \u5199\u5165)", "Payment Service (ACID \u8BB0\u8D26)" ],
+    tables: [ "users, profiles, credentials", "orders, order_items", "transactions, ledgers", "audit_logs" ]
+  }
+};
+
+function esc(s){ var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+// ---- 交互逻辑（适配 fv- 类与右侧面板）----
+var ACTIVE = null, HOVERED = null;
+var fvPlaceholder = document.getElementById("fvPanelPlaceholder");
+var fvContent = document.getElementById("fvPanelContent");
+
+function getNb(id){
+  var nb = {};
+  for (var i = 0; i < EDGE_ELS.length; i++){
+    if (EDGE_ELS[i].src === id) nb[EDGE_ELS[i].tgt] = 1;
+    if (EDGE_ELS[i].tgt === id) nb[EDGE_ELS[i].src] = 1;
+  }
+  return nb;
+}
+
+function showPanel(id){
+  var sd = SD[id];
+  if (!sd) return;
+  var h = "<h3 class='fv-panel-title'>" + esc(sd.name) + "</h3>";
+  h += "<div class='fv-panel-row'><span class='fv-panel-k'>\u89D2\u8272\u5B9A\u4F4D</span><span class='fv-panel-v'>" + esc(sd.role) + "</span></div>";
+  h += "<div class='fv-panel-section'><div class='fv-panel-st'>\u6280\u672F\u6808</div>";
+  var techArr = sd.tech || [];
+  for (var ti = 0; ti < techArr.length; ti++){
+    h += "<div class='fv-panel-path'>&#9758; " + esc(techArr[ti]) + "</div>";
+  }
+  h += "</div>";
+
+  var ib = sd.inbound || sd.incoming;
+  if (ib && ib.length){
+    h += "<div class='fv-panel-section'><div class='fv-panel-st'>\u5165\u7AD9\u8C03\u7528 (Inbound)</div>";
+    for (var ii = 0; ii < ib.length; ii++){
+      var iv = ib[ii];
+      h += "<div style='margin:5px 0;padding:6px 10px;background:#fafafa;border-radius:6px;border-left:3px solid #2b6fd6;'>";
+      h += "<div class='fv-panel-row'><span class='fv-panel-k'>\u6765\u6E90</span><span class='fv-panel-v' style='font-weight:600'>" + esc(iv.src) + "</span></div>";
+      h += "<div class='fv-panel-row'><span class='fv-panel-k'>\u534F\u8BAE</span><span class='fv-panel-v' style='color:#2b6fd6'>" + esc(iv.proto) + "</span></div>";
+      h += "<div class='fv-panel-row'><span class='fv-panel-k'>\u7AEF\u70B9</span><span class='fv-panel-v' style='font-family:Consolas,monospace;font-size:11.5px;word-break:break-all'>" + esc(iv.ep) + "</span></div>";
+      h += "<div class='fv-panel-row' style='margin-top:2px'><span class='fv-panel-k'>\u8BF4\u660E</span><span class='fv-panel-v' style='color:#888;font-size:11.5px'>" + esc(iv.note) + "</span></div>";
+      h += "</div>";
+    }
+    h += "</div>";
+  }
+
+  var obList = sd.outgoing || sd.outbound;
+  if (obList && obList.length){
+    h += "<div class='fv-panel-section'><div class='fv-panel-st'>\u51FA\u7AD9\u4F9D\u8D56 (Outbound)</div>";
+    for (var oi = 0; oi < obList.length; oi++){
+      var ov = obList[oi];
+      h += "<div style='margin:5px 0;padding:6px 10px;background:#fafafa;border-radius:6px;border-left:3px solid #1f9d57;'>";
+      h += "<div class='fv-panel-row'><span class='fv-panel-k'>\u76EE\u6807</span><span class='fv-panel-v' style='font-weight:600'>" + esc(ov.tgt) + "</span></div>";
+      h += "<div class='fv-panel-row'><span class='fv-panel-k'>\u534F\u8BAE</span><span class='fv-panel-v' style='color:#1f9d57'>" + esc(ov.proto) + "</span></div>";
+      h += "<div class='fv-panel-row'><span class='fv-panel-k'>\u7AEF\u70B9</span><span class='fv-panel-v' style='font-family:Consolas,monospace;font-size:11.5px;word-break:break-all'>" + esc(ov.ep) + "</span></div>";
+      h += "<div class='fv-panel-row' style='margin-top:2px'><span class='fv-panel-k'>\u8BF4\u660E</span><span class='fv-panel-v' style='color:#888;font-size:11.5px'>" + esc(ov.note) + "</span></div>";
+      h += "</div>";
+    }
+    h += "</div>";
+  }
+
+  var prods = sd.producers;
+  if (prods && prods.length){
+    h += "<div class='fv-panel-section'><div class='fv-panel-st'>\u751F\u4EA7\u8005</div>";
+    for (var pi = 0; pi < prods.length; pi++){ h += "<div class='fv-panel-path'>&#8594; " + esc(prods[pi]) + "</div>"; }
+    h += "</div>";
+  }
+  var cons = sd.consumers;
+  if (cons && cons.length){
+    h += "<div class='fv-panel-section'><div class='fv-panel-st'>\u6D88\u8D39\u8005</div>";
+    for (var ci = 0; ci < cons.length; ci++){ h += "<div class='fv-panel-path'>&#8592; " + esc(cons[ci]) + "</div>"; }
+    h += "</div>";
+  }
+  var readers = sd.readers;
+  if (readers && readers.length){
+    h += "<div class='fv-panel-section'><div class='fv-panel-st'>\u8BFB\u53D6\u65B9</div>";
+    for (var ri = 0; ri < readers.length; ri++){ h += "<div class='fv-panel-path'>&#8617; " + esc(readers[ri]) + "</div>"; }
+    h += "</div>";
+  }
+  var tables = sd.tables;
+  if (tables && tables.length){
+    h += "<div class='fv-panel-section'><div class='fv-panel-st'>\u6838\u5FC3\u8868</div>";
+    for (var tbi = 0; tbi < tables.length; tbi++){ h += "<div class='fv-panel-path'>&#128203; " + esc(tables[tbi]) + "</div>"; }
+    h += "</div>";
+  }
+
+  fvContent.innerHTML = h;
+  fvPlaceholder.style.display = "none";
+  fvContent.style.display = "block";
+}
+
+function hoverPv(id){
+  if (ACTIVE) return;
+  HOVERED = id;
+  var nb = getNb(id), keys = Object.keys(ND_ELS), ki, el;
+  for (ki = 0; ki < keys.length; ki++){
+    el = ND_ELS[keys[ki]];
+    if (keys[ki] === id) el.classList.add("fv-hover");
+    else el.classList.remove("fv-hover");
+  }
+  for (var hi = 0; hi < EDGE_ELS.length; hi++){
+    var he = EDGE_ELS[hi];
+    if (he.src === id || he.tgt === id) he.el.classList.add("fv-hover-edge");
+    else he.el.classList.remove("fv-hover-edge");
+  }
+  busG.style.opacity = (id === "gateway") ? "1" : "0.3";
+}
+
+function clearHover(){
+  if (ACTIVE) return;
+  HOVERED = null;
+  Object.keys(ND_ELS).forEach(function(k){ ND_ELS[k].classList.remove("fv-hover"); });
+  EDGE_ELS.forEach(function(he){ he.el.classList.remove("fv-hover-edge"); });
+  busG.style.opacity = "1";
+}
+
+function activate(id){
+  ACTIVE = id;
+  Object.keys(ND_ELS).forEach(function(k){ ND_ELS[k].classList.remove("fv-hover"); });
+  EDGE_ELS.forEach(function(he){ he.el.classList.remove("fv-hover-edge"); });
+  var nb = getNb(id), keys = Object.keys(ND_ELS);
+  for (var ki = 0; ki < keys.length; ki++){
+    var k = keys[ki], el = ND_ELS[k], bd = BADGES[k];
+    if (k === id){
+      el.classList.add("fv-active-node"); el.classList.remove("fv-dimmed");
+      if (bd){ bd.bg.style.opacity = "1"; bd.t.textContent = "\u25CF"; }
+    } else if (nb[k]){
+      el.classList.remove("fv-dimmed"); el.classList.remove("fv-active-node");
+      if (bd){ bd.bg.style.opacity = "0.7"; bd.bg.style.fill = "#2b6fd6"; bd.t.textContent = "\u25C9"; }
+    } else {
+      el.classList.add("fv-dimmed"); el.classList.remove("fv-active-node");
+      if (bd){ bd.bg.style.opacity = "0"; }
+    }
+  }
+  for (var ei = 0; ei < EDGE_ELS.length; ei++){
+    var ee = EDGE_ELS[ei], on = (ee.src === id || ee.tgt === id), elg = ee.el._lg;
+    if (on){
+      ee.el.classList.add("fv-active-edge"); ee.el.classList.remove("fv-hidden-edge");
+      ee.el.setAttribute("marker-end", "url(#fvArrowAct)");
+      if (elg) elg.style.opacity = "1";
+    } else {
+      ee.el.classList.remove("fv-active-edge"); ee.el.classList.add("fv-hidden-edge");
+      if (elg) elg.style.opacity = "0.06";
+    }
+  }
+  busG.style.opacity = (id === "gateway") ? "1" : "0.1";
+  showPanel(id);
+}
+
+function deactivate(){
+  ACTIVE = null;
+  Object.keys(ND_ELS).forEach(function(k){
+    ND_ELS[k].classList.remove("fv-dimmed");
+    ND_ELS[k].classList.remove("fv-active-node");
+    ND_ELS[k].classList.remove("fv-hover");
+  });
+  Object.keys(BADGES).forEach(function(k){ BADGES[k].bg.style.opacity = "0"; });
+  EDGE_ELS.forEach(function(ee){
+    ee.el.classList.remove("fv-active-edge");
+    ee.el.classList.remove("fv-hidden-edge");
+    ee.el.classList.remove("fv-hover-edge");
+    ee.el.setAttribute("marker-end", "url(#fvArrow)");
+    if (ee.el._lg) ee.el._lg.style.opacity = "1";
+  });
+  busG.style.opacity = "1";
+  fvContent.style.display = "none";
+  fvPlaceholder.style.display = "block";
+}
+
+// ---- 绑定节点事件 ----
+Object.keys(ND_ELS).forEach(function(id){
+  var el = ND_ELS[id];
+  el.addEventListener("mouseenter", function(){ hoverPv(id); });
+  el.addEventListener("mouseleave", function(){ clearHover(); });
+  el.addEventListener("click", function(ev){
+    ev.stopPropagation();
+    if (ACTIVE === id) deactivate(); else activate(id);
+  });
+});
+
+// ---- Part 4: 全景弹窗开关 ----
+var overlay = document.getElementById("fullOverlay");
+var showBtn = document.getElementById("showFullBtn");
+var closeBtn = document.getElementById("fvClose");
+if (showBtn) showBtn.addEventListener("click", function(){ overlay.classList.add("show"); });
+if (closeBtn) closeBtn.addEventListener("click", function(){ overlay.classList.remove("show"); deactivate(); });
+overlay.addEventListener("click", function(ev){
+  if (ev.target === overlay){ overlay.classList.remove("show"); deactivate(); }
+});
+
+} catch (err) {
+  var ov = document.getElementById("errOverlay");
+  if (ov){ ov.textContent = "JS Error: " + (err.message || err); ov.className = "error-overlay show"; }
+  console.error("Panorama error:", err);
+}
+})();
+})();
+</script>
+</body>
+</html>

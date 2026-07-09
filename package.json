@@ -1,0 +1,13 @@
+{
+  "name": "microservice-architecture-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "微服务架构图：前端静态托管 + EdgeOne Cloud Functions 动态后端（含全景静态图）",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "npx serve ."
+  }
+}

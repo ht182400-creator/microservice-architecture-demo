@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>微服务系统架构图 · 交互式调用路径</title>
+<style>
+  :root{
+    --gw-s:"#d6451f"; --gw-f:"#ffe9e0";
+    --bs-s:"#2b6fd6"; --bs-f:"#e3eefc";
+    --in-s:"#1f9d57"; --in-f:"#e2f6ea";
+    --act:"#e0552b";
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;overflow-x:hidden;}
+  body{
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    background:#f1f1f0;color:#333;display:flex;flex-direction:column;
+    align-items:center;padding:20px 16px 40px;
+  }
+  header{text-align:center;margin-bottom:12px;width:100%;max-width:1400px;padding:0 16px;}
+  header h1{font-size:22px;margin:0 0 4px;font-weight:700;letter-spacing:.5px;}
+  header p{margin:0;font-size:13px;color:#777;}
+
+  /* 主容器：左右分栏布局 */
+  .main-wrap{
+    display:flex;align-items:flex-start;justify-content:center;
+    width:100%;max-width:1400px;gap:0;position:relative;
+  }
+
+  /* 左侧：架构图区域 */
+  .diag-wrap{
+    flex:0 0 auto;
+    transition:transform .45s cubic-bezier(.22,1,.36,1), opacity .35s ease;
+    transform-origin:center center;
+  }
+  .diag-wrap.panel-open{
+    transform:scale(0.66) translateX(-8%);
+  }
+
+  .stage{
+    width:1100px;background:#fff;border-radius:14px;
+    box-shadow:0 6px 28px rgba(0,0,0,.10);padding:14px;
+    position:relative;overflow:hidden;
+  }
+  svg{width:100%;height:auto;display:block;border-radius:8px;}
+
+  /* 节点 */
+  .node{cursor:pointer;}
+  .node .hit{fill:transparent;transition:fill .15s;}
+  .node:hover .hit{fill:rgba(0,0,0,.03);}
+  .box{stroke-width:2.2;fill:none;stroke-linejoin:round;stroke-linecap:round;transition:all .3s ease;}
+  .box2{stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;transition:all .3s ease;}
+  .label{font-size:15px;font-weight:700;fill:#2a2a2a;transition:opacity .35s ease, fill .25s ease;}
+  .sub{font-size:11.5px;fill:#777;transition:opacity .35s ease;}
+  .badge{font-size:10px;font-weight:600;fill:#fff;pointer-events:none;opacity:0;transition:opacity .25s;}
+
+  /* 边 */
+  .edge{fill:none;stroke:#6b6b6b;stroke-width:1.8;opacity:.75;transition:opacity .35s ease, stroke .35s ease, stroke-width .35s ease;}
+  .edge-label{font-size:13px;fill:#666;font-style:italic;transition:opacity .35s ease;}
+  .edge-detail{font-size:12px;fill:#888;font-style:normal;transition:opacity .35s ease;pointer-events:none;}
+
+  /* 状态类 - 点击激活（强） */
+  .dimmed .box,.dimmed .box2{opacity:.12 !important;}
+  .dimmed .label,.dimmed .sub{opacity:.15 !important;}
+  .dimmed .badge{opacity:0 !important;}
+  .hidden-edge{opacity:.04 !important;}
+  .active-node .box{stroke:#e0552b;stroke-width:3;filter:drop-shadow(0 2px 6px rgba(224,85,43,.25));}
+  .active-node .label,.active-node .sub{opacity:1 !important;}
+  .active-node .badge{opacity:1 !important;}
+  .active-edge{stroke:#e0552b !important;stroke-width:2.5 !important;opacity:1 !important;}
+
+  /* 悬停预览（弱高亮） */
+  .hover-preview .box{stroke:#f09060 !important;stroke-width:2.4 !important;}
+  .hover-preview-edge{stroke:#f09060 !important;stroke-width:2.2 !important;opacity:.95 !important;}
+
+  /* 详情面板 - 右侧独立区域 */
+  .panel-wrap{
+    flex:0 0 360px;min-height:720px;
+    opacity:0;transform:translateX(30px);
+    transition:opacity .4s ease .1s, transform .45s cubic-bezier(.22,1,.36,1);
+    pointer-events:none;
+    position:relative;top:-8px;
+  }
+  .panel-wrap.show{
+    opacity:1;transform:translateX(0);
+    pointer-events:auto;
+  }
+  .detail-panel{
+    width:100%;min-height:700px;background:rgba(255,255,255,.97);
+    border:2px solid #e0552b;border-radius:12px;padding:18px 20px;
+    box-shadow:0 8px 32px rgba(224,85,43,.15);
+    font-size:13px;line-height:1.65;
+    overflow-y:auto;max-height:calc(100vh - 120px);
+  }
+  .dp-title{font-size:17px;font-weight:800;color:#e0552b;margin:0 0 10px;border-bottom:2px solid #f0f0f0;padding-bottom:8px;}
+  .dp-row{display:flex;justify-content:space-between;margin:4px 0;}
+  .dp-k{color:#999;font-weight:600;flex-shrink:0;margin-right:12px;}
+  .dp-v{color:#333;text-align:right;word-break:break-all;}
+  .dp-path{background:#f6f6f6;border-radius:6px;padding:7px 11px;font-family:"Consolas","Courier New",monospace;
+    font-size:11.5px;color:#c44d26;margin:6px 0;border-left:3px solid #e0552b;}
+  .dp-section{margin-top:12px;padding-top:10px;border-top:1px dashed #ddd;}
+  .dp-section-title{font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.8px;}
+  .dp-close{
+    float:right;width:26px;height:26px;border:none;
+    background:#f0f0f0;border-radius:50%;cursor:pointer;font-size:14px;line-height:26px;
+    text-align:center;color:#999;transition:all .2s;margin-top:-4px;
+  }
+  .dp-close:hover{background:#e0552b;color:#fff;}
+
+  /* 提示条 */
+  .toast-bar{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:rgba(45,45,45,.92);color:#e8e8e8;padding:9px 24px;
+    border-radius:20px;font-size:13px;pointer-events:none;
+    opacity:0;transition:opacity .3s;z-index:100;white-space:nowrap;
+  }
+  .toast-bar.show{opacity:1;}
+
+  .legend-box{stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round;}
+  .legend-text{font-size:13px;fill:#444;}
+  .hint-text{font-size:11.5px;fill:#bbb;}
+
+  /* 错误提示 */
+  .error-overlay{
+    display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:#fee;padding:18px 28px;border:2px solid #c33;border-radius:10px;
+    color:#c33;font-family:monospace;font-size:13px;z-index:999;text-align:center;
+  }
+  .error-overlay.show{display:block;}
+</style>
+</head>
+<body>
+  <header>
+    <h1>微服务系统架构图 · 交互式调用路径</h1>
+    <p>悬停预览连接 · 点击展开详情 · 按 Esc 或点击关闭返回总览</p>
+  </header>
+
+  <div class="main-wrap">
+    <div class="diag-wrap" id="diagWrap">
+      <div class="stage" id="stage">
+        <svg id="canvas" viewBox="0 0 1120 750" role="img"></svg>
+        <div class="toast-bar" id="toast"></div>
+        <div class="error-overlay" id="errOverlay"></div>
+      </div>
+    </div>
+    <div class="panel-wrap" id="panelWrap">
+      <div class="detail-panel" id="panel">
+        <button class="dp-close" id="panelClose" title="\u5173\u95ed">✕</button>
+        <div style="clear:both"></div>
+        <div id="panelBody">
+          <p style="color:#aaa;text-align:center;padding:40px 0;">选择一个服务查看详情</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+'use strict';
+try {
+
+var NS = "http://www.w3.org/2000/svg";
+var svg = document.getElementById("canvas");
+if (!svg) { throw new Error("SVG canvas not found"); }
+
+// Emoji 用 Unicode 转义
+var E = {
+  globe: "\uD83C\uDF10", lock: "\uD83D\uDD11", person: "\uD83D\uDC64",
+  receipt: "\uD83E\uDDE7", card: "\uD83D\uDCB3", bell: "\uD83D\uDD14",
+  envelope: "\uD83D\uDCE8", database: "\uD83D\uDCBE"
+};
+
+// ========== 配色 ==========
+var colors = {
+  gateway: { s: "#d6451f", f: "#ffe9e0" },
+  business: { s: "#2b6fd6", f: "#e3eefc" },
+  infra:   { s: "#1f9d57", f: "#e2f6ea" }
+};
+
+// ========== 节点定义 ==========
+var nodes = [
+  { id: "gateway", label: E.globe + " API Gateway", sub: "\u7f51\u5173\u5165\u53e3 \u00b7 \u8def\u7531 / \u9650\u6d41 / \u8ba4\u8bc1",
+    layer: "gateway", x: 380, y: 38, w: 320, h: 70 },
+  { id: "auth",   label: E.lock + " Auth Service", sub: "\u8ba4\u8bc1 / \u9274\u6743 / JWT \u7b7e\u53d1",
+    layer: "business", x: 48, y: 218, w: 170, h: 76 },
+  { id: "user",   label: E.person + " User Service", sub: "\u7528\u6237\u8d44\u6599 / Profile \u7ba1\u7406",
+    layer: "business", x: 238, y: 218, w: 170, h: 76 },
+  { id: "order",  label: E.receipt + " Order Service", sub: "\u4e0b\u5355 / \u8ba2\u5355\u72b6\u6001\u673a",
+    layer: "business", x: 450, y: 218, w: 180, h: 76 },
+  { id: "payment",label: E.card + " Payment Service",sub: "\u652f\u4ed8\u6e20\u9053 / \u5bf9\u8d26 / \u9000\u6b3e",
+    layer: "business", x: 670, y: 218, w: 180, h: 76 },
+  { id: "notify", label: E.bell + " Notification", sub: "\u63a8\u9001 / \u90ae\u4ef6 / \u77ed\u4fe1",
+    layer: "business", x: 882, y: 218, w: 175, h: 76 },
+  { id: "kafka",  label: E.envelope + " Message Queue", sub: "Kafka \u00b7 \u5f02\u6b65\u4e8b\u4ef6\u603b\u7ebf",
+    layer: "infra", x: 260, y: 500, w: 250, h: 78 },
+  { id: "db",     label: E.database + " Database", sub: "PostgreSQL \u4e3b\u4ece\u96c6\u7fa4",
+    layer: "infra", x: 608, y: 500, w: 270, h: 78 }
+];
+
+var nm = {};
+for (var ni = 0; ni < nodes.length; ni++) { nm[nodes[ni].id] = nodes[ni]; }
+
+// ========== 连接关系 ==========
+var edges = [
+  ["gateway", "auth",    "\u9274\u6743", { protocol: "gRPC", endpoint: "/auth.VerifyToken", method: "Unary RPC", desc: "\u6821\u9a8c Bearer Token\uff0c\u8fd4\u56de userId+roles" }],
+  ["gateway", "user",    "\u67e5\u8be2", { protocol: "REST HTTP/2", endpoint: "GET /api/v1/users/:id", method: "Reverse Proxy", desc: "\u7f51\u5173\u8def\u7531\u8f6c\u53d1\uff0c\u9644\u5e26\u5934\u90e8 X-User-Id" }],
+  ["gateway", "order",   "\u4e0b\u5355", { protocol: "REST HTTP/2", endpoint: "POST /api/v1/orders", method: "Reverse Proxy", desc: "\u9650\u6d41 500 req/s\uff0c\u8d85\u65f6 3s" }],
+  ["gateway", "payment", "\u652f\u4ed8", { protocol: "REST HTTP/2", endpoint: "POST /api/v1/payments", method: "Reverse Proxy", desc: "\u91cd\u8bd5\u7b56\u7565\uff1a\u6307\u6570\u9000\u907f\uff0c\u6700\u591a 3 \u6b21" }],
+  ["gateway", "notify",  "\u901a\u77e5", { protocol: "Internal gRPC", endpoint: "/notify.Trigger", method: "Fire-and-forget", desc: "\u5f02\u6b65\u89e6\u53d1\uff0c\u4e0d\u7b49\u5f85\u7ed3\u679c" }],
+  ["order",   "payment", "\u6263\u6b3e", { protocol: "gRPC", endpoint: "/payment.Charge", method: "Streaming RPC", desc: "\u4f20\u5165 orderId+amount\uff0c\u6d41\u5f0f\u8fd4\u56de\u652f\u4ed8\u72b6\u6001" }],
+  ["order",   "kafka",   "\u53d1\u5e03\u4e8b\u4ef6", { protocol: "Kafka Producer", endpoint: "topic: order-events", method: "Async Publish", desc: "\u8ba2\u5355\u72b6\u6001\u53d8\u66f4\u4e8b\u4ef6 (created/paid/cancelled)" }],
+  ["payment", "kafka",   "\u53d1\u5e03\u4e8b\u4ef6", { protocol: "Kafka Producer", endpoint: "topic: payment-events", method: "Async Publish", desc: "\u652f\u4ed8\u5b8c\u6210/\u5931\u8d25/\u9000\u6b3e\u4e8b\u4ef6" }],
+  ["kafka",   "notify",  "\u6d88\u8d39\u4e8b\u4ef6", { protocol: "Kafka Consumer Group", endpoint: "topic: *-events", method: "Poll Loop", desc: "\u6d88\u8d39\u6240\u6709 topic\uff0c\u5408\u5e76\u63a8\u9001" }],
+  ["auth",    "db",      "\u8bfb\u51ed\u8bc1", { protocol: "PostgreSQL Driver", endpoint: "SELECT credentials.* WHERE user_id=$1", method: "Prepared Stmt", desc: "\u8fde\u63a5\u6c60 10 conn\uff0c\u8bfb\u4ece\u5e93" }],
+  ["user",    "db",      "\u8bfb\u5199", { protocol: "ORM (Prisma)", endpoint: "users / profiles CRUD", method: "Transaction", desc: "\u5199\u4e3b\u5e93/\u8bfb\u4ece\u5e81\u81ea\u52a8\u8def\u7531" }],
+  ["order",   "db",      "\u8bfb\u5199", { protocol: "ORM (Prisma)", endpoint: "orders / order_items", method: "Saga Pattern", desc: "\u5206\u5e03\u5f0f\u4e8b\u52a1\u8865\u507f" }],
+  ["payment", "db",      "\u8bb0\u8d26", { protocol: "Raw SQL", endpoint: "transactions / ledgers", method: "ACID Txn", desc: "\u5f3a\u4e00\u81f4\u6027\u5199\u5165\uff0cWAL \u65e5\u5fd7" }]
+];
+
+// ========== 服务详情 ==========
+var serviceDetails = {
+  gateway: {
+    name: "API Gateway",
+    role: "\u7edf\u4e00\u5165\u53e3 & \u6d41\u91cf\u8c03\u5ea6\u4e2d\u5fc3",
+    tech: [ "Nginx / Kong / APISIX", "TLS \u7ec8\u7ed3", "JWT \u6821\u9a8c\u4e2d\u95f4\u4ef6", "\u4ee4\u724c\u6876\u9650\u6d41 (500 req/s)", "\u7070\u5ea6\u53d1\u5e03\u8def\u7531" ],
+    inbound: [{ src: "\u5ba2\u6237\u7aef (Web/App)", proto: "HTTPS TLS 1.3", ep: "*", note: "\u5168\u91cf\u5165\u53e3\u6d41\u91cf" }],
+    outbound: [
+      { tgt: "Auth Service", proto: "gRPC Unary", ep: "/auth.VerifyToken", note: "\u6bcf\u6b21\u8bf7\u6c42\u5148\u9274\u6743" },
+      { tgt: "User Service", proto: "REST Reverse Proxy", ep: "GET|PUT /api/v1/users/:id", note: "\u900f\u4f20 + \u6ce8\u5165\u7528\u6237\u8eab\u4efd" },
+      { tgt: "Order Service", proto: "REST Reverse Proxy", ep: "POST /api/v1/orders", note: "\u9650\u6d41\u4fdd\u62a4" },
+      { tgt: "Payment Service", proto: "REST Reverse Proxy", ep: "POST /api/v1/payments", note: "\u91cd\u8bd5 + \u7194\u65ad" },
+      { tgt: "Notification", proto: "gRPC F-F", ep: "/notify.Trigger", note: "\u5f02\u6b65\u4e0d\u963b\u585e" }
+    ]
+  },
+  auth: {
+    name: "Auth Service",
+    role: "\u8eab\u4efd\u8ba4\u8bc1\u4e0e\u6388\u6743\u670d\u52a1",
+    tech: [ "Go / gRPC \u670d\u52a1", "Redis \u7f13\u5b58 Session", "JWT RS256 \u7b7e\u53d1", "OAuth2.0 / OIDC \u652f\u6301" ],
+    inbound: [{ src: "API Gateway", proto: "gRPC", ep: "/auth.VerifyToken | /auth.Login | /auth.Refresh", note: "\u9274\u6743 / \u767b\u5f55 / \u5237\u65b0 Token" }],
+    outbound: [{ tgt: "Database (\u53ea\u8bfb)", proto: "PostgreSQL", ep: "credentials / roles / permissions \u8868", note: "\u67e5\u8be2\u51ed\u8bc1\u4e0e\u6743\u9650" }]
+  },
+  user: {
+    name: "User Service",
+    role: "\u7528\u6237\u8d44\u6599\u7ba1\u7406",
+    tech: [ "Node.js / Express", "Prisma ORM", "\u5934\u50cf OSS \u4e0a\u4f20", "\u7f13\u5b58\u5c42 (Redis)" ],
+    inbound: [
+      { src: "API Gateway", proto: "REST", ep: "GET|PATCH /api/v1/users/:id", note: "\u67e5\u8d44\u6599 / \u6539\u8d44\u6599" },
+      { src: "\u5185\u90e8\u670d\u52a1", proto: "gRPC", ep: "/user.GetProfile", note: "\u5176\u4ed6\u670d\u52a1\u62c9\u53d6\u7528\u6237\u4fe1\u606f" }
+    ],
+    outbound: [{ tgt: "Database", proto: "Prisma ORM", ep: "users / profiles / avatars \u8868", note: "\u4e3b\u4ece\u8bfb\u5199\u5206\u79bb" }]
+  },
+  order: {
+    name: "Order Service",
+    role: "\u8ba2\u5355\u6838\u5fc3\u4e1a\u52a1",
+    tech: [ "Java Spring Boot", "Saga \u5206\u5e03\u5f0f\u4e8b\u52a1", "\u672c\u5730\u6d88\u606f\u8868", "\u5e93\u5b58\u9884\u6263" ],
+    inbound: [
+      { src: "API Gateway", proto: "REST", ep: "POST /api/v1/orders (create) GET /api/v1/orders/:id (query)", note: "\u4e0b\u5355 / \u67e5\u8be2 / \u53d6\u6d88" },
+      { src: "Payment Service", proto: "gRPC callback", ep: "/order.OnPaymentResult", note: "\u652f\u4ed8\u56de\u8c03\u901a\u77e5" }
+    ],
+    outgoing: [
+      { tgt: "Payment Service", proto: "gRPC Streaming", ep: "/payment.Charge", note: "\u53d1\u8d77\u6263\u6b3e\u8bf7\u6c42" },
+      { tgt: "Kafka", proto: "Producer", ep: "topic: order-events", note: "\u53d1\u5e03\u8ba2\u5355\u72b6\u6001\u4e8b\u4ef6" },
+      { tgt: "Database", proto: "Prisma ORM", ep: "orders / order_items \u8868", note: "Saga \u8865\u507f\u4e8b\u52a1" }
+    ]
+  },
+  payment: {
+    name: "Payment Service",
+    role: "\u652f\u4ed8\u7ed3\u7b97\u5904\u7406",
+    tech: [ "Go / gRPC", "\u591a\u6e20\u9053\u9002\u914d\u5668 (\u652f\u4ed8\u5b9d/\u5fae\u4fe1/Stripe)", "\u5bf9\u8d26\u5b9a\u65f6\u4efb\u52a1", "\u5e42\u7b49\u6027\u4fdd\u8bc1" ],
+    inbound: [
+      { src: "API Gateway", proto: "REST", ep: "POST /api/v1/payments (create) GET /api/v1/payments/:id", note: "\u521b\u5efa\u652f\u4ed8 / \u67e5\u8be2\u72b6\u6001" },
+      { src: "Order Service", proto: "gRPC Streaming", ep: "/payment.Charge", note: "\u6263\u6b3e\u6307\u4ee4" }
+    ],
+    outgoing: [
+      { tgt: "Kafka", proto: "Producer", ep: "topic: payment-events", note: "\u652f\u4ed8\u7ed3\u679c\u4e8b\u4ef6" },
+      { tgt: "Database", proto: "Raw SQL ACID", ep: "transactions / ledgers \u8868", note: "\u8d44\u91d1\u6d41\u6c34\u5f3a\u4e00\u81f4" }
+    ]
+  },
+  notify: {
+    name: "Notification Service",
+    role: "\u591a\u6e20\u9053\u6d88\u606f\u63a8\u9001",
+    tech: [ "Python FastAPI", "\u6a21\u677f\u5f15\u64ce (Jinja2)", "FCM/APNs \u63a8\u9001", "SMTP / SMS \u7f51\u5173" ],
+    incoming: [
+      { src: "API Gateway", proto: "gRPC F-F", ep: "/notify.Trigger", note: "\u540c\u6b65\u89e6\u53d1\u63a8\u9001" },
+      { src: "Kafka Consumer", proto: "Poll", ep: "topic: order-events + payment-events", note: "\u5f02\u6b65\u6d88\u8d39\u4e8b\u4ef6\u9a71\u52a8\u63a8\u9001" }
+    ]
+  },
+  kafka: {
+    name: "Apache Kafka",
+    role: "\u5f02\u6b65\u4e8b\u4ef6\u603b\u7ebf (\u89e3\u8026\u4e2d\u67a2)",
+    tech: [ "3 \u5206\u533a x 3 \u526f\u672c", "\u6d88\u606f\u4fdd\u7559 7 \u5929", "Schema Registry (Avro)", "\u6b7b\u4fe1\u961f\u5217 (DLQ)" ],
+    producers: [ "Order Service -> topic: order-events", "Payment Service -> topic: payment-events" ],
+    consumers: [ "Notification Service -> Consumer Group: notify-group" ]
+  },
+  db: {
+    name: "PostgreSQL Cluster",
+    role: "\u6301\u4e45\u5316\u5b58\u50a8\u5c42",
+    tech: [ "\u4e3b\u4ece \u590d\u5236 (1\u4e3b2\u4ece)", "PgBouncer \u8fde\u63a5\u6c60", "WAL \u5f52\u6863\u5907\u4efd", "Read Committed \u9694\u79bb\u7ea7\u522b" ],
+    readers: [ "Auth Service (\u53ea\u8bfb\u51ed\u8bc1)", "User Service (CRUD)", "Order Service (Saga \u5199\u5165)", "Payment Service (ACID \u8bb0\u8d26)" ],
+    tables: [ "users, profiles, credentials", "orders, order_items", "transactions, ledgers", "audit_logs" ]
+  }
+};
+
+// ========== 手绘工具 ==========
+function rnd(a, b) { return a + Math.random() * (b - a); }
+
+function roughEdge(x1, y1, x2, y2, r) {
+  r = r || 1.2;
+  var dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+  var nx = -dy / len, ny = dx / len;
+  var off = rnd(-1, 1) * r * 1.6;
+  var mx = (x1 + x2) / 2 + nx * off, my = (y1 + y2) / 2 + ny * off;
+  var c1x = x1 + (mx - x1) * 0.5 + rnd(-r, r), c1y = y1 + (my - y1) * 0.5 + rnd(-r, r);
+  var c2x = x2 + (mx - x2) * 0.5 + rnd(-r, r), c2y = y2 + (my - y2) * 0.5 + rnd(-r, r);
+  return "M" + x1.toFixed(1) + " " + y1.toFixed(1) +
+         " Q" + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + mx.toFixed(1) + " " + my.toFixed(1) +
+         " Q" + c2x.toFixed(1) + " " + c2y.toFixed(1) + " " + x2.toFixed(1) + " " + y2.toFixed(1);
+}
+
+function roughRect(x, y, w, h, r) {
+  r = r || 1.7;
+  function pass(rr) {
+    return roughEdge(x, y, x + w, y, rr) + " " +
+           roughEdge(x + w, y, x + w, y + h, rr) + " " +
+           roughEdge(x + w, y + h, x, y + h, rr) + " " +
+           roughEdge(x, y + h, x, y, rr);
+  }
+  return [pass(r), pass(r * 0.72)];
+}
+
+function borderPoint(n, tx, ty) {
+  var cx = n.x + n.w / 2, cy = n.y + n.h / 2;
+  var dx = tx - cx, dy = ty - cy;
+  var hw = n.w / 2, hh = n.h / 2;
+  if (!dx && !dy) return { x: cx, y: cy };
+  var scale = 1 / Math.max(Math.abs(dx) / hw, Math.abs(dy) / hh);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+
+function orthoRoute(sx, sy, tx, ty) {
+  var midY = sy + (ty - sy) * 0.42;
+  return "M" + sx.toFixed(1) + " " + sy.toFixed(1) +
+         " L" + sx.toFixed(1) + " " + midY.toFixed(1) +
+         " L" + tx.toFixed(1) + " " + midY.toFixed(1) +
+         " L" + tx.toFixed(1) + " " + ty.toFixed(1);
+}
+
+// ========== SVG 结构 ==========
+var defs = document.createElementNS(NS, "defs");
+
+var pat = document.createElementNS(NS, "pattern");
+pat.setAttribute("id", "grid");
+pat.setAttribute("width", "22");
+pat.setAttribute("height", "22");
+pat.setAttribute("patternUnits", "userSpaceOnUse");
+var pg = document.createElementNS(NS, "path");
+pg.setAttribute("d", "M22 0L0 0 0 22");
+pg.setAttribute("fill", "none");
+pg.setAttribute("stroke", "#eee");
+pg.setAttribute("stroke-width", ".8");
+pat.appendChild(pg);
+defs.appendChild(pat);
+
+function mkMarker(id, col) {
+  var m = document.createElementNS(NS, "marker");
+  m.setAttribute("id", id);
+  m.setAttribute("viewBox", "0 0 10 10");
+  m.setAttribute("refX", "9");
+  m.setAttribute("refY", "5");
+  m.setAttribute("markerWidth", "7");
+  m.setAttribute("markerHeight", "7");
+  m.setAttribute("orient", "auto-start-reverse");
+  var mp = document.createElementNS(NS, "path");
+  mp.setAttribute("d", "M0 0L10 5L0 10z");
+  mp.setAttribute("fill", col);
+  m.appendChild(mp);
+  return m;
+}
+defs.appendChild(mkMarker("arrow", "#6b6b6b"));
+defs.appendChild(mkMarker("arrowAct", "#e0552b"));
+svg.appendChild(defs);
+
+var bg = document.createElementNS(NS, "rect");
+bg.setAttribute("width", "1120");
+bg.setAttribute("height", "750");
+bg.setAttribute("fill", "url(#grid)");
+svg.appendChild(bg);
+
+var egG = document.createElementNS(NS, "g");
+var busG = document.createElementNS(NS, "g");
+var ndG = document.createElementNS(NS, "g");
+var lgG = document.createElementNS(NS, "g");
+svg.appendChild(egG);
+svg.appendChild(busG);
+svg.appendChild(ndG);
+svg.appendChild(lgG);
+
+// ========== 总线 ==========
+var gw = nm.gateway;
+var busY = gw.y + gw.h + 30;
+var busL = gw.x + 40, busR = gw.x + gw.w - 40;
+var busP = roughEdge(busL, busY - 2.5, busR, busY - 2.5, 0.8) + " " +
+          roughEdge(busR, busY + 2.5, busL, busY + 2.5, 0.8);
+
+var busEl = document.createElementNS(NS, "path");
+busEl.setAttribute("d", busP);
+busEl.style.cssText = "stroke:#d6451f;stroke-opacity:0.32;stroke-width:2.8;fill:none;";
+busG.appendChild(busEl);
+
+var busLbl = document.createElementNS(NS, "text");
+busLbl.setAttribute("x", gw.x + gw.w / 2);
+busLbl.setAttribute("y", busY - 10);
+busLbl.setAttribute("text-anchor", "middle");
+busLbl.style.cssText = "font-size:12px;fill:#bbbb88;font-weight:600;font-style:italic;";
+busLbl.textContent = "<- \u5206\u53d1\u603b\u7ebf ->";
+busG.appendChild(busLbl);
+
+var gwBL = document.createElementNS(NS, "path");
+gwBL.setAttribute("d", roughEdge(gw.x + gw.w / 2, gw.y + gw.h, gw.x + gw.w / 2, busY + 2.5, 1));
+gwBL.style.cssText = "stroke:#d6451f;stroke-opacity:0.4;stroke-width:2;fill:none;";
+egG.appendChild(gwBL);
+
+// ========== 绘制边 ==========
+var edgeEls = [];
+for (var ei = 0; ei < edges.length; ei++) {
+  var e = edges[ei];
+  var s = nm[e[0]], t = nm[e[1]];
+  var sc = { x: s.x + s.w / 2, y: s.y + s.h / 2 };
+  var tc = { x: t.x + t.w / 2, y: t.y + t.h / 2 };
+  var sp, tp, d;
+
+  if (e[0] === "gateway") {
+    sp = { x: sc.x, y: busY + 2.5 };
+    tp = borderPoint(t, sc.x, busY);
+    d = orthoRoute(sp.x, sp.y, tp.x, tp.y);
+  } else {
+    sp = borderPoint(s, tc.x, tc.y);
+    tp = borderPoint(t, sc.x, sc.y);
+    d = roughEdge(sp.x, sp.y, tp.x, tp.y, 1.4);
+  }
+
+  var p = document.createElementNS(NS, "path");
+  p.setAttribute("d", d);
+  p.setAttribute("class", "edge");
+  p.setAttribute("marker-end", "url(#arrow)");
+  egG.appendChild(p);
+
+  var lg = document.createElementNS(NS, "g");
+  lg.setAttribute("class", "edge-label-g");
+
+  if (e[2]) {
+    var lx = (sp.x + tp.x) / 2, ly = (sp.y + tp.y) / 2;
+    var tw = e[2].length * 14 + 16;
+    var lb = document.createElementNS(NS, "rect");
+    lb.setAttribute("x", lx - tw / 2);
+    lb.setAttribute("y", ly - 22);
+    lb.setAttribute("width", tw);
+    lb.setAttribute("height", "19");
+    lb.setAttribute("fill", "#fff");
+    lb.setAttribute("rx", "3");
+    lb.setAttribute("opacity", "0.88");
+
+    var lt = document.createElementNS(NS, "text");
+    lt.setAttribute("x", lx);
+    lt.setAttribute("y", ly - 8);
+    lt.setAttribute("text-anchor", "middle");
+    lt.setAttribute("class", "edge-label");
+    lt.textContent = e[2];
+    lg.appendChild(lb);
+    lg.appendChild(lt);
+  }
+
+  if (e[3]) {
+    var info = e[3];
+    var ddx = (tp.x - sp.x) || 1, ddy = (tp.y - sp.y) || 1, dlen = Math.hypot(ddx, ddy);
+    var offX = -ddy / dlen * 22, offX2 = -ddy / dlen * 40;
+    var offY = ddx / dlen * 22, offY2 = ddx / dlen * 40;
+    var mx2 = (sp.x + tp.x) / 2 + offX2, my2 = (sp.y + tp.y) / 2 + offY2;
+
+    var pt = document.createElementNS(NS, "text");
+    pt.setAttribute("x", mx2);
+    pt.setAttribute("y", my2 - 3);
+    pt.setAttribute("text-anchor", "middle");
+    pt.setAttribute("class", "edge-detail");
+    pt.textContent = info.protocol;
+    lg.appendChild(pt);
+
+    var et = document.createElementNS(NS, "text");
+    et.setAttribute("x", mx2);
+    et.setAttribute("y", my2 + 14);
+    et.setAttribute("text-anchor", "middle");
+    et.setAttribute("class", "edge-detail");
+    et.style.fill = "#ccc";
+    var eptxt = info.endpoint;
+    if (eptxt.length > 28) eptxt = eptxt.slice(0, 27) + "\u2026";
+    et.textContent = eptxt;
+    lg.appendChild(et);
+  }
+
+  egG.appendChild(lg);
+  p._labelG = lg;
+  p._prevMarker = "url(#arrow)";
+  edgeEls.push({ el: p, src: e[0], tgt: e[1] });
+}
+
+// ========== 绘制节点 ==========
+var ndEls = {}, badges = {};
+for (var ni2 = 0; ni2 < nodes.length; ni2++) {
+  var n = nodes[ni2];
+  var c = colors[n.layer];
+  var g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "node");
+  g.dataset.id = n.id;
+
+  var rects = roughRect(n.x, n.y, n.w, n.h);
+  var p1 = document.createElementNS(NS, "path");
+  p1.setAttribute("d", rects[0]);
+  p1.setAttribute("class", "box");
+  p1.setAttribute("stroke", c.s);
+  p1.setAttribute("fill", c.f);
+  var p2 = document.createElementNS(NS, "path");
+  p2.setAttribute("d", rects[1]);
+  p2.setAttribute("class", "box2");
+  p2.setAttribute("stroke", c.s);
+  p2.setAttribute("fill", "none");
+
+  var hit = document.createElementNS(NS, "rect");
+  hit.setAttribute("x", n.x);
+  hit.setAttribute("y", n.y);
+  hit.setAttribute("width", n.w);
+  hit.setAttribute("height", n.h);
+  hit.setAttribute("class", "hit");
+
+  var t1 = document.createElementNS(NS, "text");
+  t1.setAttribute("x", n.x + n.w / 2);
+  t1.setAttribute("y", n.y + n.h / 2 - 3);
+  t1.setAttribute("text-anchor", "middle");
+  t1.setAttribute("class", "label");
+  t1.textContent = n.label;
+  var t2 = document.createElementNS(NS, "text");
+  t2.setAttribute("x", n.x + n.w / 2);
+  t2.setAttribute("y", n.y + n.h / 2 + 17);
+  t2.setAttribute("text-anchor", "middle");
+  t2.setAttribute("class", "sub");
+  t2.textContent = n.sub;
+
+  var badge = document.createElementNS(NS, "text");
+  badge.setAttribute("x", n.x + n.w - 14);
+  badge.setAttribute("y", n.y + 16);
+  badge.setAttribute("class", "badge");
+  badge.setAttribute("text-anchor", "middle");
+  badge.style.cssText = "fill:#fff;font-weight:700;font-size:10px;";
+
+  var bc = document.createElementNS(NS, "circle");
+  bc.setAttribute("cx", n.x + n.w - 14);
+  bc.setAttribute("cy", n.y + 13);
+  bc.setAttribute("r", "9");
+  bc.style.cssText = "fill:#e0552b;opacity:0;transition:opacity .25s;";
+
+  g.appendChild(p1); g.appendChild(p2); g.appendChild(hit);
+  g.appendChild(t1); g.appendChild(t2);
+  g.appendChild(bc); g.appendChild(badge);
+  ndG.appendChild(g);
+  ndEls[n.id] = g;
+  badges[n.id] = { bg: bc, t: badge };
+}
+
+// ========== 图例 ==========
+var legendData = [
+  ["\u7f51\u5173\u5c42 Gateway", "gateway"],
+  ["\u4e1a\u52a1\u670d\u52a1\u5c42 Business", "business"],
+  ["\u57fa\u7840\u8bbe\u65bd\u5c42 Infrastructure", "infra"]
+];
+var ly = 628;
+for (var li = 0; li < legendData.length; li++) {
+  var ld = legendData[li];
+  var lc = colors[ld[1]];
+  var lgEl = document.createElementNS(NS, "g");
+  var lrects = roughRect(40, ly, 26, 19, 1.1);
+  var lr1 = document.createElementNS(NS, "path");
+  lr1.setAttribute("d", lrects[0]); lr1.setAttribute("class", "legend-box");
+  lr1.setAttribute("stroke", lc.s); lr1.setAttribute("fill", lc.f);
+  var lr2 = document.createElementNS(NS, "path");
+  lr2.setAttribute("d", lrects[1]); lr2.setAttribute("class", "legend-box");
+  lr2.setAttribute("stroke", lc.s); lr2.setAttribute("fill", "none");
+  var ltx = document.createElementNS(NS, "text");
+  ltx.setAttribute("x", 75); ltx.setAttribute("y", ly + 14);
+  ltx.setAttribute("class", "legend-text"); ltx.textContent = ld[0];
+  lgEl.appendChild(lr1); lgEl.appendChild(lr2); lgEl.appendChild(ltx);
+  lgG.appendChild(lgEl);
+  ly += 28;
+}
+var hint = document.createElementNS(NS, "text");
+hint.setAttribute("x", 40);
+hint.setAttribute("y", ly + 8);
+hint.setAttribute("class", "hint-text");
+hint.textContent = "\ud83d\udca1 \u60ac\u505c\u9884\u89c8\u8fde\u63a5 \u00b7 \u70b9\u51fb\u5c55\u5f00\u8be6\u60c5 \u00b7 Esc \u8fd4\u56de";
+lgG.appendChild(hint);
+
+// ========== 交互逻辑 ==========
+var activeId = null;
+var hoveredId = null;
+
+var diagWrap = document.getElementById("diagWrap");
+var panelWrap = document.getElementById("panelWrap");
+var panel = document.getElementById("panel");
+var panelBody = document.getElementById("panelBody");
+var panelClose = document.getElementById("panelClose");
+var toast = document.getElementById("toast");
+
+function getNeighbors(id) {
+  var nb = new Set();
+  for (var i = 0; i < edgeEls.length; i++) {
+    if (edgeEls[i].src === id) nb.add(edgeEls[i].tgt);
+    if (edgeEls[i].tgt === id) nb.add(edgeEls[i].src);
+  }
+  return nb;
+}
+
+function renderPanel(id) {
+  var sd = serviceDetails[id];
+  if (!sd) return;
+  var h = "<button class='dp-close' id='panelCloseDyn' title='\u5173\u95ed'>✕</button><div style='clear:both'></div>";
+  h += "<h3 class='dp-title'>" + escapeHtml(sd.name) + "</h3>";
+  h += "<div class='dp-row'><span class='dp-k'>\u89d2\u8272\u5b9a\u4f4d</span><span class='dp-v'>" + escapeHtml(sd.role) + "</span></div>";
+
+  h += "<div class='dp-section'><div class='dp-section-title'>\u6280\u6720\u6808</div>";
+  var techArr = sd.tech || [];
+  for (var ti = 0; ti < techArr.length; ti++) {
+    h += "<div class='dp-path'>&#9758; " + escapeHtml(techArr[ti]) + "</div>";
+  }
+  h += "</div>";
+
+  var ib = sd.inbound || sd.incoming;
+  if (ib && ib.length) {
+    h += "<div class='dp-section'><div class='dp-section-title'>\u5165\u7ad9\u8c03\u7528 (Inbound)</div>";
+    for (var ii = 0; ii < ib.length; ii++) {
+      var iv = ib[ii];
+      h += "<div style='margin:5px 0;padding:6px 10px;background:#fafafa;border-radius:6px;border-left:3px solid #2b6fd6;'>";
+      h += "<div class='dp-row'><span class='dp-k'>\u6765\u6e90</span><span class='dp-v' style='font-weight:600'>" + escapeHtml(iv.src) + "</span></div>";
+      h += "<div class='dp-row'><span class='dp-k'>\u534f\u8bae</span><span class='dp-v' style='color:#2b6fd6'>" + escapeHtml(iv.proto) + "</span></div>";
+      h += "<div class='dp-row'><span class='dp-k'>\u7aef\u70b9</span><span class='dp-v' style='font-family:Consolas,monospace;font-size:11.5px;word-break:break-all'>" + escapeHtml(iv.ep) + "</span></div>";
+      h += "<div class='dp-row' style='margin-top:2px'><span class='dp-k'>\u8bf4\u660e</span><span class='dp-v' style='color:#888;font-size:11.5px'>" + escapeHtml(iv.note) + "</span></div>";
+      h += "</div>";
+    }
+    h += "</div>";
+  }
+
+  var obList = sd.outgoing || sd.outbound;
+  if (obList && obList.length) {
+    h += "<div class='dp-section'><div class='dp-section-title'>\u51fa\u7ad9\u4f9d\u8d56 (Outbound)</div>";
+    for (var oi = 0; oi < obList.length; oi++) {
+      var ov = obList[oi];
+      h += "<div style='margin:5px 0;padding:6px 10px;background:#fafafa;border-radius:6px;border-left:3px solid #1f9d57;'>";
+      h += "<div class='dp-row'><span class='dp-k'>\u76ee\u6807</span><span class='dp-v' style='font-weight:600'>" + escapeHtml(ov.tgt) + "</span></div>";
+      h += "<div class='dp-row'><span class='dp-k'>\u534f\u8bae</span><span class='dp-v' style='color:#1f9d57'>" + escapeHtml(ov.proto) + "</span></div>";
+      h += "<div class='dp-row'><span class='dp-k'>\u7aef\u70b9</span><span class='dp-v' style='font-family:Consolas,monospace;font-size:11.5px;word-break:break-all'>" + escapeHtml(ov.ep) + "</span></div>";
+      h += "<div class='dp-row' style='margin-top:2px'><span class='dp-k'>\u8bf4\u660e</span><span class='dp-v' style='color:#888;font-size:11.5px'>" + escapeHtml(ov.note) + "</span></div>";
+      h += "</div>";
+    }
+    h += "</div>";
+  }
+
+  var prods = sd.producers;
+  if (prods && prods.length) {
+    h += "<div class='dp-section'><div class='dp-section-title'>\u751f\u4ea7\u8005</div>";
+    for (var pi = 0; pi < prods.length; pi++) {
+      h += "<div class='dp-path'>&#8594; " + escapeHtml(prods[pi]) + "</div>";
+    }
+    h += "</div>";
+  }
+  var cons = sd.consumers;
+  if (cons && cons.length) {
+    h += "<div class='dp-section'><div class='dp-section-title'>\u6d88\u8d39\u8005</div>";
+    for (var ci = 0; ci < cons.length; ci++) {
+      h += "<div class='dp-path'>&#8592; " + escapeHtml(cons[ci]) + "</div>";
+    }
+    h += "</div>";
+  }
+  var readers = sd.readers;
+  if (readers && readers.length) {
+    h += "<div class='dp-section'><div class='dp-section-title'>\u8bfb\u53d6\u65b9</div>";
+    for (var ri = 0; ri < readers.length; ri++) {
+      h += "<div class='dp-path'>&#8617; " + escapeHtml(readers[ri]) + "</div>";
+    }
+    h += "</div>";
+  }
+  var tables = sd.tables;
+  if (tables && tables.length) {
+    h += "<div class='dp-section'><div class='dp-section-title'>\u6838\u5fc3\u8868</div>";
+    for (var tbi = 0; tbi < tables.length; tbi++) {
+      h += "<div class='dp-path'>&#128203; " + escapeHtml(tables[tbi]) + "</div>";
+    }
+    h += "</div>";
+  }
+
+  panelBody.innerHTML = h;
+
+  // 动态绑定关闭按钮
+  var dynClose = document.getElementById("panelCloseDyn");
+  if (dynClose) {
+    dynClose.addEventListener("click", function(ev) { ev.stopPropagation(); deactivate(); });
+  }
+}
+
+function escapeHtml(str) {
+  var div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---------- 悬停预亮 ----------
+function hoverPreview(id) {
+  if (activeId) return; // 已激活状态不处理悬停
+  hoveredId = id;
+  var nb = getNeighbors(id);
+  // 高亮目标节点（弱）
+  var keys = Object.keys(ndEls);
+  for (var ki = 0; ki < keys.length; ki++) {
+    var k = keys[ki];
+    var el = ndEls[k];
+    if (k === id) {
+      el.classList.add("hover-preview");
+    } else {
+      el.classList.remove("hover-preview");
+    }
+  }
+  // 高亮相关边（弱橙色）
+  for (var hi = 0; hi < edgeEls.length; hi++) {
+    var he = edgeEls[hi];
+    if (he.src === id || he.tgt === id) {
+      he.el.classList.add("hover-preview-edge");
+    } else {
+      he.el.classList.remove("hover-preview-edge");
+    }
+  }
+  busG.style.opacity = (id === "gateway") ? "1" : "0.3";
+}
+
+function clearHoverPreview() {
+  if (activeId) return;
+  hoveredId = null;
+  var vals = Object.values(ndEls);
+  for (var vi = 0; vi < vals.length; vi++) {
+    vals[vi].classList.remove("hover-preview");
+  }
+  for (var hj = 0; hj < edgeEls.length; hj++) {
+    edgeEls[hj].el.classList.remove("hover-preview-edge");
+  }
+  busG.style.opacity = "1";
+}
+
+// ---------- 点击激活 ----------
+function activate(id) {
+  activeId = id;
+  // 清除悬停残留
+  var vals = Object.values(ndEls);
+  for (var vi = 0; vi < vals.length; vi++) {
+    vals[vi].classList.remove("hover-preview");
+  }
+  for (var hj = 0; hj < edgeEls.length; hj++) {
+    edgeEls[hj].el.classList.remove("hover-preview-edge");
+  }
+
+  var nb = getNeighbors(id);
+  var keys = Object.keys(ndEls);
+  for (var ki = 0; ki < keys.length; ki++) {
+    var k = keys[ki];
+    var el = ndEls[k], bd = badges[k];
+    if (k === id) {
+      el.classList.add("active-node"); el.classList.remove("dimmed");
+      if (bd) { bd.bg.style.opacity = "1"; bd.t.textContent = "\u25cf"; }
+    } else if (nb.has(k)) {
+      el.classList.remove("dimmed"); el.classList.remove("active-node");
+      if (bd) { bd.bg.style.opacity = "0.7"; bd.bg.style.fill = "#2b6fd6"; bd.t.textContent = "\u25c9"; }
+    } else {
+      el.classList.add("dimmed"); el.classList.remove("active-node");
+      if (bd) { bd.bg.style.opacity = "0"; }
+    }
+  }
+
+  for (var ei2 = 0; ei2 < edgeEls.length; ei2++) {
+    var ee = edgeEls[ei2];
+    var on = (ee.src === id || ee.tgt === id);
+    var elg = ee.el._labelG;
+    if (on) {
+      ee.el.classList.add("active-edge"); ee.el.classList.remove("hidden-edge");
+      ee.el.setAttribute("marker-end", "url(#arrowAct)");
+      if (elg) elg.style.opacity = "1";
+    } else {
+      ee.el.classList.remove("active-edge"); ee.el.classList.add("hidden-edge");
+      if (elg) elg.style.opacity = "0.06";
+    }
+  }
+
+  busG.style.opacity = (id === "gateway") ? "1" : "0.1";
+
+  // 缩放架构图 + 显示面板
+  diagWrap.classList.add("panel-open");
+  renderPanel(id);
+  panelWrap.classList.add("show");
+  showToast("\u6b63\u5728\u67e5\u770b\uff1a" + nm[id].label + " \u7684\u5b8c\u6574\u8c03\u7528\u94fe\u8def");
+}
+
+function deactivate() {
+  activeId = null;
+  var vals = Object.values(ndEls);
+  for (var vi = 0; vi < vals.length; vi++) {
+    vals[vi].classList.remove("dimmed"); vals[vi].classList.remove("active-node");
+    vals[vi].classList.remove("hover-preview");
+  }
+  var bvals = Object.values(badges);
+  for (var bi = 0; bi < bvals.length; bi++) { bvals[bi].bg.style.opacity = "0"; }
+
+  for (var ei3 = 0; ei3 < edgeEls.length; ei3++) {
+    var ee2 = edgeEls[ei3];
+    ee2.el.classList.remove("active-edge"); ee2.el.classList.remove("hidden-edge");
+    ee2.el.classList.remove("hover-preview-edge");
+    ee2.el.setAttribute("marker-end", "url(#arrow)");
+    if (ee2.el._labelG) ee2.el._labelG.style.opacity = "1";
+  }
+  busG.style.opacity = "1";
+
+  // 恢复架构图尺寸 + 隐藏面板
+  diagWrap.classList.remove("panel-open");
+  panelWrap.classList.remove("show");
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(function () { toast.classList.remove("show"); }, 2200);
+}
+
+// ========== 绑定事件 ==========
+var nodeKeys = Object.keys(ndEls);
+for (var nk = 0; nk < nodeKeys.length; nk++) {
+  (function (id) {
+    var el = ndEls[id];
+
+    // 悬停预亮
+    el.addEventListener("mouseenter", function () { hoverPreview(id); });
+    el.addEventListener("mouseleave", function () { clearHoverPreview(); });
+
+    // 点击展开详情
+    el.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      if (activeId === id) deactivate(); else activate(id);
+    });
+  })(nodeKeys[nk]);
+}
+
+document.getElementById("stage").addEventListener("click", function (ev) {
+  var target = ev.target;
+  if (target === svg || (target.tagName === "rect" && target.getAttribute("fill") === "url(#grid)")) {
+    if (activeId) deactivate();
+  }
+});
+
+if (panelClose) {
+  panelClose.addEventListener("click", function (ev) { ev.stopPropagation(); deactivate(); });
+}
+
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && activeId) deactivate();
+});
+
+} catch (err) {
+  var overlay = document.getElementById("errOverlay");
+  if (overlay) {
+    overlay.textContent = "JS Error: " + (err.message || err);
+    overlay.className = "error-overlay show";
+  }
+  console.error("Microservice diagram error:", err);
+}
+})();
+</script>
+</body>
+</html>
