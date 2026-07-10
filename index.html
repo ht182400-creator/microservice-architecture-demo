@@ -210,11 +210,12 @@ h1{font-size:24px;margin:0 0 4px;}
 var TOKEN = null, ME = null;
 
 // ---- 环境判定：本地预览走 Mock，线上走真实 Cloud Functions ----
-// 线上域名（*.edgeone.dev / *.edgeone.app / https）永远不使用 Mock
+// 线上域名白名单（*.edgeone.dev / *.edgeone.app / *.edgeone.cool / https）永远不使用 Mock
 var HOST = location.hostname || '';
 var IS_PROD = location.protocol === 'https:' ||
               /\.edgeone\.dev$/.test(HOST) ||
-              /\.edgeone\.app$/.test(HOST);
+              /\.edgeone\.app$/.test(HOST) ||
+              /\.edgeone\.cool$/.test(HOST);
 // 调试开关：URL 加 ?mock=1 可强制本地 Mock（仅用于本地排错）
 var FORCE_MOCK = /[?&]mock=1\b/.test(location.search);
 var IS_LOCAL_PREVIEW = (
