@@ -209,29 +209,19 @@ h1{font-size:24px;margin:0 0 4px;}
 
 var TOKEN = null, ME = null;
 
-// ---- 环境判定：本地预览走 Mock，线上走真实 Cloud Functions ----
-// 线上域名白名单（*.edgeone.dev / *.edgeone.app / *.edgeone.cool / https）永远不使用 Mock
-var HOST = location.hostname || '';
-var IS_PROD = location.protocol === 'https:' ||
-              /\.edgeone\.dev$/.test(HOST) ||
-              /\.edgeone\.app$/.test(HOST) ||
-              /\.edgeone\.cool$/.test(HOST);
-// 调试开关：URL 加 ?mock=1 可强制本地 Mock（仅用于本地排错）
+// ---- 环境判定：仅「直接用浏览器打开 HTML 文件(file://)」或显式 ?mock=1 才用 Mock ----
+// 只要页面是「被某个服务器托管」（含自有 Node 后端 localhost:3000、局域网 IP、任意域名、EdgeOne）
+// 就一律走真实后端 API，不再回退 Mock。这样自有服务器部署开箱即用。
+// 调试开关：URL 加 ?mock=1 可强制本地 Mock（用于纯前端自测）。
+var IS_FILE = location.protocol === 'file:';
 var FORCE_MOCK = /[?&]mock=1\b/.test(location.search);
-var IS_LOCAL_PREVIEW = (
-  location.protocol === 'file:' ||
-  HOST === 'localhost' ||
-  HOST === '127.0.0.1' ||
-  HOST === ''
-);
-// 线上环境绝不走 Mock；只有本地预览（且非强制生产）才用 Mock
-var USE_MOCK = FORCE_MOCK || (IS_LOCAL_PREVIEW && !IS_PROD);
+var USE_MOCK = IS_FILE || FORCE_MOCK;
 var MODE_EL = document.getElementById('modeHint');
 if (USE_MOCK) {
   MODE_EL.textContent = '\u26A0 Local preview - using Mock API data (no backend)';
   MODE_EL.style.color = '#f0883e';
 } else {
-  MODE_EL.textContent = '\u2713 Live - connected to EdgeOne Cloud Functions';
+  MODE_EL.textContent = '\u2713 Live - connected to backend server';
   MODE_EL.style.color = '#1f9d57';
 }
 
