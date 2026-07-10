@@ -1,0 +1,33 @@
+# systemd 单元文件 —— 用于「自托管」方式 B
+# 安装步骤：
+#   sudo cp deploy/microservice-arch.service /etc/systemd/system/
+#   sudo mkdir -p /opt/micro-arch /var/log/micro-arch
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now microservice-arch
+#
+# 查看状态/日志：
+#   systemctl status microservice-arch
+#   journalctl -u microservice-arch -f
+#
+# 注意：WorkingDirectory 与 ExecStart 假定代码位于 /opt/micro-arch（见 setup-vps.sh）。
+# 若改目录请同步修改下面三处路径。User 用 www-data（nginx 同用户，最小权限）。
+
+[Unit]
+Description=Microservice Architecture Demo Backend (Node/Express)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/micro-arch
+ExecStart=/usr/bin/node /opt/micro-arch/server.js
+Restart=on-failure
+RestartSec=3
+Environment=PORT=3000
+Environment=NODE_ENV=production
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=micro-arch
+
+[Install]
+WantedBy=multi-user.target

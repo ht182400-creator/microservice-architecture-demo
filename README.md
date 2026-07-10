@@ -27,8 +27,15 @@
 │       ├── payment.js            # POST /api/payment     支付
 │       └── notify.js            # POST /api/notify      通知
 ├── Dockerfile                     # 方式 B 生产镜像（可选）
+├── deploy/                       # 方式 B 上云主机的实体配置（与"双模式部署"Skill 方法学分离）
+│   ├── setup-vps.sh             # 一键部署脚本（Ubuntu/Debian；默认 systemd，加 --pm2 用 PM2）
+│   ├── microservice-arch.service # systemd 单元文件
+│   ├── ecosystem.config.js      # PM2 配置文件
+│   └── nginx-micro-arch.conf   # Nginx 反向代理 + HTTPS 配置
 └── .gitignore
 ```
+
+> 说明：`deploy/` 是**本项目具体的上云主机文件**；而"如何搭建一套双模式项目"的方法学已另存为 WorkBuddy Skill（`dual-mode-deploy`），二者不交叉、不重叠。
 
 > 说明：`cloud-functions/` 只在方式 A（EdgeOne）生效；方式 B 由 `server.js` 直接实现同样的 5 个接口。两个目录可共存，互不影响。
 
@@ -97,6 +104,30 @@ server {
 ```
 
 之后把 `your.domain.com` 解析到这台服务器即可。后端端口、CORS（已对 `*` 放开）均无需改动。
+
+### 4. 一键上云主机（推荐，用 `deploy/` 配置）
+
+`deploy/` 目录里是**本项目直接可用的实体配置**，省去手敲：
+
+| 文件 | 作用 |
+|------|------|
+| `deploy/setup-vps.sh` | 一键脚本：装依赖 → 确保 Node ≥18 → 拉代码 → `npm install` → 写 Nginx → 注册守护（systemd 或 PM2）→ 申请 Let's Encrypt 证书开 HTTPS |
+| `deploy/microservice-arch.service` | systemd 单元文件（后台常驻、开机自启、崩溃自动重启） |
+| `deploy/ecosystem.config.js` | PM2 配置（若不想用 systemd，改用 PM2 时用到） |
+| `deploy/nginx-micro-arch.conf` | Nginx 反代 + HTTPS 预留配置 |
+
+**用法（在一台 Ubuntu/Debian 云主机上，域名 A 记录已指向其公网 IP）：**
+
+```bash
+# 默认用 systemd 托管
+sudo bash deploy/setup-vps.sh micro.fable5.icu
+
+# 或改用 PM2 托管
+sudo bash deploy/setup-vps.sh micro.fable5.icu --pm2
+```
+
+脚本跑完即得到 `https://你的域名/` 正式站点（前端自动走真实后端，无需改代码）。
+若要分步手动部署，直接看各配置文件顶部的注释即可。
 
 ---
 
