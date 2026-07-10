@@ -35,6 +35,8 @@
 └── .gitignore
 ```
 
+> **📖 宝塔 Windows 面板云主机实操文档**：详见 [deploy/CLOUD-HOST-DEPLOY-GUIDE.md](deploy/CLOUD-HOST-DEPLOY-GUIDE.md)，含从零到上线的完整步骤（代码部署 → PM2 守护 → 宝塔反向代理 → SSL 证书 → 验证清单 → 故障排查）。
+
 > 说明：`deploy/` 是**本项目具体的上云主机文件**；而"如何搭建一套双模式项目"的方法学已另存为 WorkBuddy Skill（`dual-mode-deploy`），二者不交叉、不重叠。
 
 > 说明：`cloud-functions/` 只在方式 A（EdgeOne）生效；方式 B 由 `server.js` 直接实现同样的 5 个接口。两个目录可共存，互不影响。
