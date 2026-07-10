@@ -327,3 +327,39 @@ D:\www\micro-arch\
 | 适用场景 | 正式对外、免运维 | 私有环境、自定义扩展 |
 
 两套部署的**前端完全相同**，API 行为一致。可以同时在线运行，互不影响。
+
+---
+
+## 实际部署修正（2026-07-10 验证通过）
+
+以上为"理想流程"。实际在这台宝塔 Windows 机器上验证时，发现以下偏差，按此修正即可（原章节保留作参考）：
+
+### 偏差 1：PM2 在 Windows 上极不稳 → 改用 NSSM
+- 现象：`pm2 start` 后 daemon 会死、进程列表丢，端口无监听（`ECONNREFUSED`）。
+- 修正：用 **NSSM（2.24）** 把 Node 包装成 Windows 服务：
+  - 服务名 `micro-arch`，可执行 `C:\Program Files\nodejs\node.exe`，参数 `C:\www\micro-arch\server.js`
+  - `AppDirectory = C:\www\micro-arch`，`AppEnvironmentExtra = PORT=3000`，`Start = SERVICE_AUTO_START`
+  - `nssm restart micro-arch` 重启；服务 Running/Automatic，开机自启 + 崩溃自动重启。
+- NSSM 路径（服务器本地）：`C:\Users\Administrator\AppData\Local\Temp\nssm\nssm-2.24\win64\nssm.exe`（或从 nssm.cc 重新下载）。
+
+### 偏差 2：宝塔 Windows 版是 IIS，未装 Nginx → 改用独立 Nginx 绿色版
+- 现象：`C:\BtSoft\` 下无 nginx 目录，W3SVC(IIS) 在跑但 80 空闲；宝塔面板的"反向代理"依赖 IIS 的 ARR 模块，未预装。
+- 修正：自己下 **Nginx for Windows（1.26.2）** 解压到 `C:\www\nginx`，用 NSSM 把 `C:\www\nginx\nginx.exe` 也装成 Windows 服务（同名 `nginx`），并停 W3SVC 释放 80 端口。
+- 配置写 **`C:\www\nginx\conf\nginx.conf`**（反代 `127.0.0.1:3000` + Let's Encrypt 验证路径预留）。**两个坑**：
+  1. **UTF-8 BOM 污染**：PowerShell 5.1 的 `[Text.Encoding]::UTF8` 默认带 BOM，nginx(C 程序) 读 BOM 会把首行指令搞乱 → 报 `client_body_temp_path directive is not allowed here`。解决：用 `[Text.Encoding]::ASCII` 写（配置全 ASCII 无 BOM）。
+  2. **`client_body_temp_path` 等 temp 指令在 nginx 1.26.2 Windows 版 main 级报 not allowed**：直接删掉，用 nginx 默认 temp 路径（NSSM 设 AppDirectory=`C:\www\nginx` 提供正确 cwd/prefix，自动建 temp/）。
+- 验证：外网 `http://82.156.71.231/` 返回 200，反代到 3000 的 Node 服务（`X-Powered-By: Express`）。
+
+### 偏差 3：系统诊断工具层在本镜像异常（与我们的服务无关）
+- 现象：服务器上 `curl.exe` / `Invoke-WebRequest` / `Test-NetConnection` 连 `127.0.0.1:3000` 都返回失败，但 **Node 裸 `net.connect(3000,'127.0.0.1')` 和 Nginx 反代（C 裸 socket）能正常连**。
+- 结论：这是腾讯云 Windows 镜像里系统工具层的代理/WFP hook 怪异行为，**不影响真实服务**。验证请用 Node 脚本（如 `C:\www\tcp-test.js` 连 3000、`C:\www\tcp-80.js` 连 80）或直接从外网 curl 公网 IP。
+
+### 当前真实状态（2026-07-10）
+- Node 服务 `micro-arch`：Windows 服务，Running/Automatic，端口 3000。
+- Nginx 服务 `nginx`：Windows 服务，Running/Automatic，端口 80 反代 3000。
+- **外网 `http://82.156.71.231/` 已可访问**；5 个 API 全部验证通过（auth→200、user→200、order→201、payment→201、notify→201，无 token→401）。
+- **待办（需你操作）**：
+  1. 云防火墙放行 **443**（80 已通；HTTPS 需 443）。
+  2. DNS：把子域（如 `micro.fable5.icu`）A 记录指向 `82.156.71.231`。
+  3. 改 `C:\www\nginx\conf\nginx.conf` 的 `server_name _` 为真实域名，并用 Let's Encrypt（`certbot --nginx` 或 win-acme）签发证书、配 443 server 块。
+- **API 字段约定**（前端与 server.js 已对齐，勿改）：`/api/auth` 收 `{username, password}`；`/api/order`、`/api/notify` 收 `{userId, ...}`（notify 还需 `message`）；其余按代码。
