@@ -28,14 +28,17 @@
 │       └── notify.js            # POST /api/notify      通知
 ├── Dockerfile                     # 方式 B 生产镜像（可选）
 ├── deploy/                       # 方式 B 上云主机的实体配置（与"双模式部署"Skill 方法学分离）
-│   ├── setup-vps.sh             # 一键部署脚本（Ubuntu/Debian；默认 systemd，加 --pm2 用 PM2）
-│   ├── microservice-arch.service # systemd 单元文件
-│   ├── ecosystem.config.js      # PM2 配置文件
-│   └── nginx-micro-arch.conf   # Nginx 反向代理 + HTTPS 配置
+│   ├── setup-vps.sh             # 一键部署脚本（Linux/Ubuntu/Debian；默认 systemd，加 --pm2 用 PM2）
+│   ├── microservice-arch.service # systemd 单元文件（Linux）
+│   ├── ecosystem.config.js      # PM2 配置文件（Linux 可选）
+│   ├── nginx-micro-arch.conf   # Nginx 反代 + HTTPS 配置（Linux 参考）
+│   ├── acme-issue.js          # 纯 Node ACME 客户端（Windows 自托管实际用，零依赖）
+│   ├── nginx-https-final.conf  # HTTPS 版 Nginx 配置（Windows 实际用）
+│   └── HTTPS-EXPERIENCE.md    # Windows 自托管 HTTPS 部署经验总结
 └── .gitignore
 ```
 
-> **📖 宝塔 Windows 面板云主机实操文档**：详见 [deploy/CLOUD-HOST-DEPLOY-GUIDE.md](deploy/CLOUD-HOST-DEPLOY-GUIDE.md)，含从零到上线的完整步骤（代码部署 → PM2 守护 → 宝塔反向代理 → SSL 证书 → 验证清单 → 故障排查）。
+> **📖 宝塔 Windows 云主机实操文档**：详见 [deploy/CLOUD-HOST-DEPLOY-GUIDE.md](deploy/CLOUD-HOST-DEPLOY-GUIDE.md)，含从零到上线的完整步骤（代码部署 → NSSM 守护 Node → 独立 Nginx 反代 → 纯 Node ACME 签发 Let's Encrypt → 验证清单 → 故障排查）。
 
 > 说明：`deploy/` 是**本项目具体的上云主机文件**；而"如何搭建一套双模式项目"的方法学已另存为 WorkBuddy Skill（`dual-mode-deploy`），二者不交叉、不重叠。
 
@@ -113,10 +116,13 @@ server {
 
 | 文件 | 作用 |
 |------|------|
-| `deploy/setup-vps.sh` | 一键脚本：装依赖 → 确保 Node ≥18 → 拉代码 → `npm install` → 写 Nginx → 注册守护（systemd 或 PM2）→ 申请 Let's Encrypt 证书开 HTTPS |
-| `deploy/microservice-arch.service` | systemd 单元文件（后台常驻、开机自启、崩溃自动重启） |
-| `deploy/ecosystem.config.js` | PM2 配置（若不想用 systemd，改用 PM2 时用到） |
-| `deploy/nginx-micro-arch.conf` | Nginx 反代 + HTTPS 预留配置 |
+| `deploy/setup-vps.sh` | **Linux** 一键脚本：装依赖 → Node ≥18 → 拉代码 → `npm install` → 写 Nginx → 注册守护（systemd 或 PM2）→ certbot 开 HTTPS |
+| `deploy/microservice-arch.service` | systemd 单元文件（Linux 后台常驻、开机自启、崩溃自动重启） |
+| `deploy/ecosystem.config.js` | PM2 配置（Linux 若不想用 systemd，改用 PM2 时用到） |
+| `deploy/nginx-micro-arch.conf` | Nginx 反代 + HTTPS 预留配置（Linux 参考） |
+| `deploy/acme-issue.js` | **纯 Node ACME 客户端**（Windows 自托管实际用：零依赖，手工 DER 构造 SAN CSR，HTTP-01 写本地 webroot 签 Let's Encrypt） |
+| `deploy/nginx-https-final.conf` | **HTTPS 版 Nginx 配置**（Windows 实际用：80→443 跳转 + 443 ssl 反代 :3000） |
+| `deploy/HTTPS-EXPERIENCE.md` | Windows 自托管 HTTPS 部署经验总结（踩坑 + 最终可行方案） |
 
 **用法（在一台 Ubuntu/Debian 云主机上，域名 A 记录已指向其公网 IP）：**
 

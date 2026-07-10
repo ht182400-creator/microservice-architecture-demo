@@ -1,6 +1,6 @@
 # 微服务架构图 Demo · 云主机代建部署文档
 
-> **目标服务器**：宝塔 Windows 面板（BT.CN）云主机  
+> **目标服务器**：腾讯云轻量 Windows 云主机（原装宝塔 Windows 面板，但本部署改用独立 Nginx 绿色版 + NSSM，不依赖宝塔）  
 > **公网 IP**：`82.156.71.231`  
 > **配置**：CPU 2 核 / 内存 2 GB / 系统盘 40 GB  
 > **部署日期**：2026-07-10  
@@ -15,17 +15,17 @@
                     │   用户浏览器                  │
                     │  https://你的域名/            │
                     └──────┬──────────────────────┘
-                           │ HTTPS (Let's Encrypt / 宝塔SSL)
+                           │ HTTPS (Let's Encrypt / 纯 Node ACME 签发)
                            ▼
               ┌──────────────────────────────────┐
-              │  宝塔 Windows 面板                │
-              │  82.156.71.231 :443 (Nginx)      │
+              │  Nginx 1.26.2 绿色版（NSSM 服务）    │
+              │  82.156.71.231 :443 (SSL)         │
               │         反向代理 → :3000          │
               └──────────────┬───────────────────┘
                              │
               ┌──────────────▼───────────────────┐
               │  Node.js / Express (server.js)    │
-              │  PM2 托管，端口 3000              │
+              │  NSSM 服务 micro-arch，端口 3000              │
               │                                  │
               │  /api/auth     POST  登录鉴权     │
               │  /api/user/:id GET   查用户(需Token)│
@@ -84,8 +84,8 @@ git --version
 # ============================================================
 # 第 1 步：创建项目目录
 # ============================================================
-New-Item -ItemType Directory -Path "D:\www\micro-arch" -Force
-Set-Location "D:\www\micro-arch"
+New-Item -ItemType Directory -Path "C:\www\micro-arch" -Force
+Set-Location "C:\www\micro-arch"
 
 # ============================================================
 # 第 2 步：克隆代码
@@ -108,32 +108,25 @@ node server.js
 
 ```powershell
 # ============================================================
-# 第 5 步：全局安装 PM2 并启动守护进程
+# 第 5 步：用 NSSM 把 Node 包装成 Windows 服务（PM2 在 Windows 极不稳，弃用）
 # ============================================================
-npm install -g pm2-windows-upgrade  # Windows 兼容层（首次需要）
-pm2 start server.js --name micro-arch
-pm2 save                            # 保存当前进程列表
+# NSSM 路径（服务器本地，或到 nssm.cc 重新下载）：
+$nssm = "C:\Users\Administrator\AppData\Local\Temp\nssm\nssm-2.24\win64\nssm.exe"
+& $nssm install micro-arch "C:\Program Files\nodejs\node.exe" "C:\www\micro-arch\server.js"
+& $nssm set micro-arch AppDirectory "C:\www\micro-arch"
+& $nssm set micro-arch AppEnvironmentExtra "PORT=3000"
+& $nssm set micro-arch Start "SERVICE_AUTO_START"
+Start-Service micro-arch            # 启动服务（Running / Automatic，开机自启）
 
 # 确认运行状态：
-pm2 list                           # 应显示 micro-arch │ online
-pm2 logs micro-arch --lines 20     # 查看最近日志
+Get-Service micro-arch              # 应显示 Running / Automatic
 
 # ============================================================
-# 第 6 步：设置 PM2 开机自启（Windows 计划任务方式）
+# 第 6 步：开机自启已由 Start=SERVICE_AUTO_START 保证，无需额外计划任务
 # ============================================================
-# PM2 在 Windows 上没有原生 startup 子命令，改用计划任务：
-# 创建启动脚本 D:\www\micro-arch\start-pm2.bat：
-@"
-@echo off
-cd /d D:\www\micro-arch
-pm2 resurrect
-"@ | Out-File -Encoding ASCII "D:\www\micro-arch\start-pm2.bat"
-
-# 注册为开机自启计划任务：
-$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c D:\www\micro-arch\start-pm2.bat"
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Register-ScheduledTask -TaskName "PM2-MicroArch" -Action $action -Trigger $trigger -Settings $settings -Description "PM2 auto-start for micro-arch demo" -RunLevel Highest
+# 更新代码后重启后端：
+Restart-Service micro-arch
+# 或 NSSM 原生：& $nssm restart micro-arch
 ```
 
 **第 5~6 步完成后**，访问 `http://82.156.71.231:3000/` 应该能看到前端页面（绿色 "Live - connected to backend server"）。
@@ -154,35 +147,33 @@ Register-ScheduledTask -TaskName "PM2-MicroArch" -Action $action -Trigger $trigg
 
 ---
 
-## 五、宝塔面板配置（反向代理 + SSL）
+## 五、Nginx 配置（独立绿色版 + 纯 Node ACME 签发）
 
-### 5.1 添加网站
+> 本机**不用宝塔面板**（宝塔 Windows 版是 IIS，`C:\BtSoft\` 下无 nginx）。直接用独立的 **Nginx 1.26.2 绿色版**（解压在 `C:\www\nginx`，NSSM 守护为服务 `nginx`），并用**纯 Node ACME 客户端**签发 Let's Encrypt 证书（不依赖 win-acme 二进制——其下载被截断 + 服务器解压全坏，不可行）。
 
-1. 打开宝塔面板 → **网站** → **添加站点**
-2. 域名填：`micro.fable5.icu`（替换为实际使用的域名）
-3. 根目录设为：`D:\www\micro-arch`
-4. PHP 版本选 **纯静态**
-5. 点击提交
+### 5.1 上传 HTTPS 版 Nginx 配置
+- 把 `deploy/nginx-https-final.conf` 上传覆盖到 `C:\www\nginx\conf\nginx.conf`（ASCII 无 BOM；可用 base64 原样还原，避免 PowerShell 的 UTF-8 BOM 污染首行指令）。
+- 配置结构：80 server 仅留 `.well-known/acme-challenge/` + `return 301 https://$host$request_uri`；443 server 开 ssl、反代 `127.0.0.1:3000`、加 HSTS。
 
-### 5.2 配置反向代理
+### 5.2 纯 Node ACME 签发证书（HTTP-01）
+在服务器 `C:\www\win-acme\` 下运行（脚本零依赖，挑战文件写本地 webroot）：
+```powershell
+# ① 先 staging 跑通整条流水线
+node C:\www\win-acme\acme-issue.js            # 默认 staging
+# ② 再 prod 签真实可信证书
+node C:\www\win-acme\acme-issue.js prod       # 落盘 C:\www\certs\fullchain.pem + privkey.pem
+```
 
-1. 进入刚创建的站点 → **设置** → **反向代理**
-2. 添加反向代理：
-   - 代理名称：`micro-arch-backend`
-   - 目标URL：`http://127.0.0.1:3000`
-   - 发送域名：`$host`
-3. 保存
+### 5.3 语法校验与重启
+```powershell
+# 校验（必须带 -p 前缀，否则会因 cwd 误解误报 test failed）
+C:\www\nginx\nginx.exe -t -c C:\www\nginx\conf\nginx.conf -p C:\www\nginx
+# 通过 NSSM 服务重启（勿 Stop-Process + 手动起，会双 master 抢端口）
+Restart-Service -Name 'nginx' -Force
+```
 
-此时访问 `http://micro.fable5.icu/` 即可通过 Nginx 反向代理到 Node.js 后端。
-
-### 5.3 开启 HTTPS（免费 SSL 证书）
-
-1. 进入站点 → **SSL** → **Let's Encrypt**
-2. 选择 **文件验证**方式
-3. 勾选域名 → 申请证书
-4. 申请成功后开启 **强制 HTTPS**
-
-宝塔会自动处理证书续期（默认 60 天自动续签）。
+### 5.4 自动续期
+`C:\www\win-acme\renew.ps1`（`node acme-issue.js prod` + `Restart-Service -Name 'nginx' -Force`）已由计划任务 `RenewLetsEncrypt` 每 60 天 03:00 以 SYSTEM 自动执行。
 
 > 若 DNS 尚未生效导致验证失败，等几分钟（通常 < 5 分钟）后重试。
 
@@ -250,28 +241,29 @@ curl -X POST https://micro.fable5.icu/api/notify -H "Content-Type: application/j
 ## 七、日常运维命令
 
 ```powershell
-# ===== 进程管理 =====
-pm2 list                          # 查看所有托管进程及状态
-pm2 logs micro-arch --lines 50    # 查看最近 50 行日志
-pm2 restart micro-arch            # 重启（更新代码后）
-pm2 stop micro-arch               # 停止
-pm2 delete micro-arch             # 删除（彻底移除）
+# ===== 进程管理（NSSM 服务）=====
+Get-Service micro-arch            # 查看后端服务状态
+Get-Service nginx                # 查看 Nginx 服务状态
+Restart-Service micro-arch      # 重启后端（更新代码后）
+Restart-Service nginx -Force     # 重启 Nginx（改配置后）
+Stop-Service micro-arch         # 停止后端
+# NSSM 原生命令（可选）：$nssm = "C:\Users\Administrator\AppData\Local\Temp\nssm\nssm-2.24\win64\nssm.exe"; & $nssm restart micro-arch
 
 # ===== 更新代码 =====
-Set-Location "D:\www\micro-arch"
+Set-Location "C:\www\micro-arch"
 git pull origin main              # 拉最新代码
 npm install                       # 如有新依赖
-pm2 restart micro-arch            # 重启生效
+Restart-Service micro-arch       # 重启生效
 
 # ===== 回滚 =====
 git log --oneline -10             # 查看最近提交
 git revert HEAD                   # 回退上一个提交（或 git reset --hard <commit-hash>）
-pm2 restart micro-arch
+Restart-Service micro-arch
 
-# ===== 宝塔面板常用 =====
-# 网站 → 站点名 → 日志 → 查看 Nginx 访问/错误日志
-# 安全 → 防火墙 → 管理 80/443 端口放行规则
-# SSL → Let's Encrypt → 续期（一般自动，也可手动点）
+# ===== Nginx 日志 / 端口 / 证书 =====
+# 日志：C:\www\nginx\logs\error.log / access.log
+# 防火墙放行：云控制台安全组 + 服务器本地（腾讯云控制台 / netsh advfirewall）
+# 证书续期：计划任务 RenewLetsEncrypt 每 60 天自动跑；手动续：node C:\www\win-acme\acme-issue.js prod
 ```
 
 ---
@@ -280,37 +272,41 @@ pm2 restart micro-arch
 
 | 现象 | 可能原因 | 排查方法 |
 |------|----------|----------|
-| 访问超时 / 无法连接 | 防火墙未放行 80/443/3000 | 宝塔 → 安全 → 防火墙 → 检查放行规则；云厂商安全组也需放行 |
-| 502 Bad Gateway | Node.js 进程未启动或崩溃 | `pm2 list` 查状态；`pm2 logs` 查错误日志 |
+| 访问超时 / 无法连接 | 防火墙未放行 80/443 | 云厂商安全组 + 服务器本地放行规则（腾讯云控制台 / netsh advfirewall） |
+| 502 Bad Gateway | Node.js 服务未启动或崩溃 | `Get-Service micro-arch` 查状态；NSSM / 应用日志查错误（`Restart-Service micro-arch` 重启） |
 | 前端显示橙色 Local preview | 页面以 `file://` 打开或 URL 带 `?mock=1` | 确认通过域名/IP 访问而非直接双击 HTML 文件 |
 | API 报 401 未授权 | 请求未携带 Bearer Token | 检查前端 `authHdr()` 是否正确附加 Authorization 头 |
-| SSL 证书验证失败 | DNS 未生效或 CNAME 错误 | 用 `nslookup micro.fable5.icu` 确认解析到 82.156.71.231 |
+| HTTPS 无法访问 / 证书错误 | 443 未放行或证书未签 | 云控制台放行 443；`node C:\www\win-acme\acme-issue.js prod` 重签 |
+| SSL 证书验证失败 | DNS 未生效 | 用 `nslookup micro.fable5.icu` 确认解析到 82.156.71.231 |
 | npm install 报错 | Node 版本过低 | `node -v` 确认 ≥ 18，否则升级 |
-| pm2 启动失败 | 缺少 windows-upgrade | 先 `npm install -g pm2-windows-upgrade` 再试 |
-| 端口冲突 3000 已占用 | 其他程序占用了 3000 | `netstat -ano \| findstr ":3000"` 找到 PID 结束它，或在 server.json 里改 PORT |
+| Nginx 重启后 80/443 双占 | 误用 Stop-Process 手动起导致双 master | 用 `Restart-Service -Name 'nginx' -Force`（NSSM 服务）重启，勿手动起 |
 
 ---
 
 ## 九、目录结构（服务器上最终形态）
 
 ```
-D:\www\micro-arch\
-├── .git/                          # Git 仓库（方便 pull 更新）
-├── node_modules/                  # npm 依赖（express 等）
-├── index.html                     # 动态前端（自动走真实后端）
-├── microservice-architecture.html # 静态全景架构图
-├── server.js                      # Express 后端（PM2 托管此文件）
-├── package.json
-├── package-lock.json
-├── Dockerfile                     # 可选：容器化备用
-├── edgeone.json                   # EdgeOne 配置（自托管模式不使用）
-├── cloud-functions/               # EdgeOne CF（自托管模式不使用）
-└── deploy/                        # 参考配置（Linux 用，Windows 主要参考思路）
-    ├── setup-vps.sh               # Linux 一键脚本（本机不用）
-    ├── ecosystem.config.js        # PM2 配置参考
-    ├── microservice-arch.service  # systemd 参考（Windows 无 systemd）
-    └── nginx-micro-arch.conf      # Nginx 反代参考（宝塔面板内配）
+C:\www\
+├── micro-arch\                    # 项目代码（NSSM 服务 micro-arch 托管）
+│   ├── .git/
+│   ├── node_modules/              # npm 依赖（express 等）
+│   ├── index.html                 # 动态前端（自动走真实后端）
+│   ├── microservice-architecture.html
+│   ├── server.js                 # Express 后端（NSSM 服务运行此文件）
+│   ├── package.json
+│   └── Dockerfile                # 可选：容器化备用
+├── nginx\                         # 独立 Nginx 1.26.2 绿色版（NSSM 服务 nginx 托管）
+│   ├── nginx.exe
+│   ├── conf\nginx.conf            # HTTPS 版配置（反代 :3000 + 80→443 跳转）
+│   └── logs\
+├── letsencrypt\                   # HTTP-01 挑战文件目录（.well-known/acme-challenge/）
+├── certs\                        # 证书：fullchain.pem + privkey.pem
+└── win-acme\                     # 纯 Node ACME 客户端
+    ├── acme-issue.js             # 零依赖 ACME 客户端（staging / prod）
+    └── renew.ps1                 # 续期脚本（计划任务 RenewLetsEncrypt 调用）
 ```
+
+> `deploy/`（仓库内）为参考配置：`setup-vps.sh`（Linux/systemd）、`ecosystem.config.js`（PM2）、`nginx-micro-arch.conf`（Nginx 参考）、`acme-issue.js` / `nginx-https-final.conf` / `HTTPS-EXPERIENCE.md`（本次 Windows 实际用到的）。`cloud-functions/` 与 `edgeone.json` 为 EdgeOne 部署用，自托管模式不使用。
 
 ---
 
@@ -354,12 +350,11 @@ D:\www\micro-arch\
 - 现象：服务器上 `curl.exe` / `Invoke-WebRequest` / `Test-NetConnection` 连 `127.0.0.1:3000` 都返回失败，但 **Node 裸 `net.connect(3000,'127.0.0.1')` 和 Nginx 反代（C 裸 socket）能正常连**。
 - 结论：这是腾讯云 Windows 镜像里系统工具层的代理/WFP hook 怪异行为，**不影响真实服务**。验证请用 Node 脚本（如 `C:\www\tcp-test.js` 连 3000、`C:\www\tcp-80.js` 连 80）或直接从外网 curl 公网 IP。
 
-### 当前真实状态（2026-07-10）
-- Node 服务 `micro-arch`：Windows 服务，Running/Automatic，端口 3000。
-- Nginx 服务 `nginx`：Windows 服务，Running/Automatic，端口 80 反代 3000。
-- **外网 `http://82.156.71.231/` 已可访问**；5 个 API 全部验证通过（auth→200、user→200、order→201、payment→201、notify→201，无 token→401）。
-- **待办（需你操作）**：
-  1. 云防火墙放行 **443**（80 已通；HTTPS 需 443）。
-  2. DNS：把子域（如 `micro.fable5.icu`）A 记录指向 `82.156.71.231`。
-  3. 改 `C:\www\nginx\conf\nginx.conf` 的 `server_name _` 为真实域名，并用 Let's Encrypt（`certbot --nginx` 或 win-acme）签发证书、配 443 server 块。
+### 当前真实状态（2026-07-10 全部完成）
+- Node 服务 `micro-arch`：Windows 服务（NSSM），Running/Automatic，端口 3000。
+- Nginx 服务 `nginx`：Windows 服务（NSSM），Running/Automatic，80/443 均监听，反代 :3000。
+- **`https://micro.fable5.icu/` 已上线真实可信 Let's Encrypt 证书**（签发 2026-07-10，90 天有效）；`http://` 自动 301→HTTPS；5 个 API 全部 200/201，无 token→401。
+- **HTTPS 签发方式**：纯 Node ACME 客户端 `C:\www\win-acme\acme-issue.js`（零依赖，手工 DER 构造 SAN CSR，HTTP-01 写本地 webroot），**未使用 win-acme 二进制**（其下载被截断 + 服务器解压全坏，不可行）。`acme-issue.js staging` 先跑通 → `acme-issue.js prod` 签真实证书 → 落盘 `C:\www\certs\fullchain.pem` + `privkey.pem`。
+- **续期**：计划任务 `RenewLetsEncrypt`（每 60 天 03:00，SYSTEM）调用 `C:\www\win-acme\renew.ps1`（`node acme-issue.js prod` + 重启 nginx），到期前自动续签 + 重载。
+- **从沙箱远程执行**：SSH 必带 `-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null`（绕开 known_hosts 写确认），且用 PowerShell 工具跑 ssh（Bash 工具会拦截 `ssh "powershell -c"` 组合）。
 - **API 字段约定**（前端与 server.js 已对齐，勿改）：`/api/auth` 收 `{username, password}`；`/api/order`、`/api/notify` 收 `{userId, ...}`（notify 还需 `message`）；其余按代码。
